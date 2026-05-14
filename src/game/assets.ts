@@ -1,0 +1,31 @@
+export const ASSET_URL = {
+  background: '/assets/background.png',
+  table: '/assets/table_spirit.png',
+  closedGoblet: '/assets/closed_goblet_spirit.png',
+  openGoblet: '/assets/open_goblet_spirit.png',
+  diamond: '/assets/diamond_spirit.png',
+  playButton: '/assets/play_button_spirit.png',
+  sparkle: '/assets/magical_sparkle_effect_spirit.png',
+  swipeTrail: '/assets/magical_swipe_trail_effect_spirit.png',
+  backgroundTone: '/assets/background_tone.mp3',
+  playSound: '/assets/play_soundeffect.mp3',
+  pauseButton: '/assets/game_pause_spirit.png',
+  audioOn: '/assets/audio_on_spirit.png',
+  audioOff: '/assets/audio_off_spirit.png',
+} as const;
+
+export const TEXTURE_KEYS = {
+  background: 'background',
+  table: 'table',
+  closedGoblet: 'closed_goblet',
+  openGoblet: 'open_goblet',
+  diamond: 'diamond',
+  playButton: 'play_button',
+  sparkle: 'sparkle',
+  swipeTrail: 'swipe_trail',
+  backgroundTone: 'background_tone',
+  playSound: 'play_sound',
+  pauseButton: 'pause_button',
+  audioOn: 'audio_on',
+  audioOff: 'audio_off',
+} as const;
