@@ -139,20 +139,37 @@ export class StartScene extends Phaser.Scene {
     });
 
     const startGame = () => {
-      if (this.isBackgroundLoadingComplete) {
+      // Check if background loading is already done or if there's nothing to load
+      const isReady = this.isBackgroundLoadingComplete || (!this.load.isLoading() && this.load.progress === 1);
+
+      if (isReady) {
         this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
         this.scene.start('GameScene');
       } else {
-        // Change text to show we are waiting for assets
-        this.instructionText.setText('Channelling spirits...\n(Loading assets)');
+        // Show loading progress on the screen
+        this.instructionText.setText('Channelling spirits...\n0%');
         this.playButton.setAlpha(0.5);
         this.playButton.disableInteractive();
-        
+
+        // Update percentage as assets load
+        const onProgress = (progress: number) => {
+          const percent = Math.round(progress * 100);
+          this.instructionText.setText(`Channelling spirits...\n${percent}%`);
+        };
+
+        this.load.on('progress', onProgress);
+
         this.load.once('complete', () => {
+          this.load.off('progress', onProgress);
           this.isBackgroundLoadingComplete = true;
           this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
           this.scene.start('GameScene');
         });
+
+        // If the loader was idle for some reason, kickstart it
+        if (!this.load.isLoading()) {
+          this.load.start();
+        }
       }
     };
 
