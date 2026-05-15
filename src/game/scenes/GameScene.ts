@@ -119,16 +119,20 @@ export class GameScene extends Phaser.Scene {
     this.hudRound = this.add
       .text(20, 18, '', {
         fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: `${Math.round(20 * (w / 720))}px`,
+        fontSize: `${Math.round(28 * (w / 720))}px`,
         color: '#f4e4bc',
+        stroke: '#1a0510',
+        strokeThickness: 3,
       })
       .setDepth(uiDepth);
 
     this.hudScore = this.add
       .text(w - 20, 18, '', {
         fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: `${Math.round(20 * (w / 720))}px`,
+        fontSize: `${Math.round(28 * (w / 720))}px`,
         color: '#f4e4bc',
+        stroke: '#1a0510',
+        strokeThickness: 3,
       })
       .setOrigin(1, 0)
       .setDepth(uiDepth);
