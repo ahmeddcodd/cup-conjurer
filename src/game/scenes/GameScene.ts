@@ -87,14 +87,14 @@ export class GameScene extends Phaser.Scene {
         color: '#f4e4bc',
         stroke: '#1a0510',
         strokeThickness: 3,
-      }).setDepth(uiDepth);
+      }).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
 
     this.hudScore = this.add.text(0, 0, '', {
         fontFamily: '"Cinzel", Georgia, serif',
         color: '#f4e4bc',
         stroke: '#1a0510',
         strokeThickness: 3,
-      }).setOrigin(1, 0).setDepth(uiDepth);
+      }).setOrigin(1, 0).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
 
     this.pauseBtn = this.add.image(0, 0, TEXTURE_KEYS.pauseButton)
       .setOrigin(1, 0)
@@ -114,7 +114,7 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
         stroke: '#1a0510',
         strokeThickness: 4,
-      }).setOrigin(0.5, 0).setDepth(uiDepth);
+      }).setOrigin(0.5, 0).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
 
     this.round = 1;
     this.score = 0;

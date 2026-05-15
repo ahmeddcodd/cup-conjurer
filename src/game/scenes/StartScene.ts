@@ -108,7 +108,8 @@ export class StartScene extends Phaser.Scene {
         lineSpacing: 10,
       })
       .setOrigin(0.5)
-      .setDepth(20);
+      .setDepth(20)
+      .setResolution(window.devicePixelRatio || 2);
 
     this.tweens.add({
       targets: this.instructionText,

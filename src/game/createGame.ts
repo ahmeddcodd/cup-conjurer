@@ -9,6 +9,10 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
     width: '100%',
     height: '100%',
     backgroundColor: '#12081c',
+    pixelArt: false,
+    antialias: true,
+    roundPixels: true,
+    resolution: window.devicePixelRatio || 1,
     scale: {
       mode: Phaser.Scale.RESIZE,
     },
