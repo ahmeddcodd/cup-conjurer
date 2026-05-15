@@ -176,9 +176,11 @@ export class GameScene extends Phaser.Scene {
 
     this.hudRound.setPosition(20, 18);
     this.hudRound.setStyle({ fontSize: `${Math.round(28 * (w / 720))}px` });
+    this.hudRound.setResolution(4);
 
     this.hudScore.setPosition(w - 20, 18);
     this.hudScore.setStyle({ fontSize: `${Math.round(28 * (w / 720))}px` });
+    this.hudScore.setResolution(4);
 
     this.pauseBtn.setPosition(w, 50);
     this.pauseBtn.setScale(0.17 * (w / 720));
@@ -191,6 +193,7 @@ export class GameScene extends Phaser.Scene {
         fontSize: `${Math.round(32 * (w / 720))}px`,
         wordWrap: { width: w * 0.92 }
     });
+    this.phaseHint.setResolution(4);
 
     this.computeSlotsAndScale();
     this.updateAudioIcon();

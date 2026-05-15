@@ -16,6 +16,9 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
       roundPixels: true,
       mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
     },
+    // Explicitly set resolution for high-DPI mobile screens. 
+    // We cast to any because some Phaser 4 type definitions are missing this top-level property.
+    ...({ resolution: window.devicePixelRatio || 1 } as any),
     scale: {
       mode: Phaser.Scale.RESIZE,
     },

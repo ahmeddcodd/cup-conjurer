@@ -215,6 +215,7 @@ export class StartScene extends Phaser.Scene {
     this.instructionText.setStyle({
       fontSize: `${Math.round(34 * (w / 720))}px`,
     });
+    this.instructionText.setResolution(3); // Re-apply resolution after style change to ensure crispness
 
     this.playButton.setPosition(cx, h * 0.7);
     const playScale = Math.min((w * 0.92) / this.playButton.width, (h * 0.38) / this.playButton.height);

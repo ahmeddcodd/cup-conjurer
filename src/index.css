@@ -27,9 +27,9 @@ body,
 
 .phaser-host canvas {
   display: block;
-  /* Ensure the canvas fills the container exactly */
-  width: 100% !important;
-  height: 100% !important;
+  /* Remove !important to let Phaser's internal high-DPI scaling handle the styling */
+  max-width: 100%;
+  max-height: 100%;
 }
 
 
