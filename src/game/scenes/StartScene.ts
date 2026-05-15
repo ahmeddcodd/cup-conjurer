@@ -104,12 +104,21 @@ export class StartScene extends Phaser.Scene {
         color: '#f4e4bc',
         align: 'center',
         stroke: '#1a0510',
-        strokeThickness: 4,
+        strokeThickness: 5,
         lineSpacing: 10,
+        padding: { x: 10, y: 10 },
+        shadow: {
+          offsetX: 2,
+          offsetY: 2,
+          color: '#000',
+          blur: 6,
+          stroke: true,
+          fill: true
+        }
       })
       .setOrigin(0.5)
       .setDepth(20)
-      .setResolution(window.devicePixelRatio || 2);
+      .setResolution(3); // Super-sampled for maximum crispness
 
     this.tweens.add({
       targets: this.instructionText,

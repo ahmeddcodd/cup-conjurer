@@ -87,14 +87,18 @@ export class GameScene extends Phaser.Scene {
         color: '#f4e4bc',
         stroke: '#1a0510',
         strokeThickness: 3,
-      }).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
+        padding: { x: 4, y: 4 },
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, stroke: true, fill: true }
+      }).setDepth(uiDepth).setResolution(3);
 
     this.hudScore = this.add.text(0, 0, '', {
         fontFamily: '"Cinzel", Georgia, serif',
         color: '#f4e4bc',
         stroke: '#1a0510',
         strokeThickness: 3,
-      }).setOrigin(1, 0).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
+        padding: { x: 4, y: 4 },
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, stroke: true, fill: true }
+      }).setOrigin(1, 0).setDepth(uiDepth).setResolution(3);
 
     this.pauseBtn = this.add.image(0, 0, TEXTURE_KEYS.pauseButton)
       .setOrigin(1, 0)
@@ -114,7 +118,9 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
         stroke: '#1a0510',
         strokeThickness: 4,
-      }).setOrigin(0.5, 0).setDepth(uiDepth).setResolution(window.devicePixelRatio || 2);
+        padding: { x: 10, y: 4 },
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, stroke: true, fill: true }
+      }).setOrigin(0.5, 0).setDepth(uiDepth).setResolution(3);
 
     this.round = 1;
     this.score = 0;
