@@ -7,14 +7,28 @@ export class StartScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // 1. Critical Assets (Must be loaded before create() is called)
+    // These are small and essential for the Start Screen's first frame.
     this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
-    this.load.image(TEXTURE_KEYS.playButton, ASSET_URL.playButton);
-    this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
-    this.load.image(TEXTURE_KEYS.swipeTrail, ASSET_URL.swipeTrail);
-    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
     this.load.image(TEXTURE_KEYS.gameLogo, ASSET_URL.gameLogo);
-    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
+    this.load.image(TEXTURE_KEYS.playButton, ASSET_URL.playButton);
+    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
+    this.load.image(TEXTURE_KEYS.swipeTrail, ASSET_URL.swipeTrail);
     this.load.audio(TEXTURE_KEYS.playSound, ASSET_URL.playSound);
+
+    // 2. Non-Critical Assets (Load in background)
+    // We start these in preload, but we'll allow the scene to start 
+    // even if they are still in flight, ensuring faster "gameReady".
+    this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
+    this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
+    this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
+    this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
+    this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
+    this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
+    this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
+    
+    // Music is usually the largest file, so we load it last
+    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
   }
 
   create(): void {

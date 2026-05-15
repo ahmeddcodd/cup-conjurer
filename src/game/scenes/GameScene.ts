@@ -63,15 +63,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
-    this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
-    this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
-    this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
-    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
-    this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
-    this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
-    this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
-    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
+    // Assets are now preloaded in StartScene to minimize initial wait time
+    // and allow for background loading while the player is on the start screen.
   }
 
   create(): void {
@@ -310,6 +303,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async startRound(): Promise<void> {
+    // Safety check: Ensure all background-loaded assets are ready before starting the first round
+    if (this.load.isLoading()) {
+      await new Promise<void>((resolve) => {
+        this.load.once('complete', resolve);
+      });
+    }
+
     this.gameOverRoot?.destroy(true);
     this.gameOverRoot = undefined;
     this.hideGem();
