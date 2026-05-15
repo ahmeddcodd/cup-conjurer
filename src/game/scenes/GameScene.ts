@@ -101,7 +101,7 @@ export class GameScene extends Phaser.Scene {
     vignette.setDepth(1);
 
     this.table = this.add.image(cx, h * 0.58, TEXTURE_KEYS.table).setOrigin(0.5, 0.5);
-    const tableScale = Math.min((w * 0.94) / this.table.width, (h * 0.62) / this.table.height);
+    const tableScale = Math.min((w * 1.00) / this.table.width, (h * 0.62) / this.table.height);
     this.table.setScale(tableScale);
     this.table.setDepth(10);
 

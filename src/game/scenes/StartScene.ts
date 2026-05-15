@@ -11,6 +11,8 @@ export class StartScene extends Phaser.Scene {
     this.load.image(TEXTURE_KEYS.playButton, ASSET_URL.playButton);
     this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
     this.load.image(TEXTURE_KEYS.swipeTrail, ASSET_URL.swipeTrail);
+    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
+    this.load.image(TEXTURE_KEYS.gameLogo, ASSET_URL.gameLogo);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
     this.load.audio(TEXTURE_KEYS.playSound, ASSET_URL.playSound);
   }
@@ -45,78 +47,81 @@ export class StartScene extends Phaser.Scene {
     vignette.fillGradientStyle(0x1a0510, 0x1a0510, 0x0a0208, 0x0a0208, 0.55, 0.55, 0.75, 0.75);
     vignette.fillRect(0, 0, w, h);
 
-    const sparkleLeft = this.add
-      .image(w * 0.12, h * 0.18, TEXTURE_KEYS.sparkle)
+    const gemLeft = this.add
+      .image(w * 0.15, h * 0.12, TEXTURE_KEYS.diamond)
       .setOrigin(0.5)
-      .setAlpha(0.55)
-      .setScale(0.35 * (w / 720));
-    const sparkleRight = this.add
-      .image(w * 0.88, h * 0.22, TEXTURE_KEYS.sparkle)
+      .setAlpha(0.85)
+      .setScale(0.55 * (w / 720));
+    const gemRight = this.add
+      .image(w * 0.85, h * 0.15, TEXTURE_KEYS.diamond)
       .setOrigin(0.5)
-      .setAlpha(0.45)
-      .setScale(0.28 * (w / 720))
-      .setAngle(22);
+      .setAlpha(0.75)
+      .setScale(0.48 * (w / 720))
+      .setAngle(15);
 
     this.tweens.add({
-      targets: [sparkleLeft, sparkleRight],
-      angle: '+=8',
-      alpha: { from: 0.35, to: 0.75 },
-      duration: 2200,
+      targets: [gemLeft, gemRight],
+      y: '+=20',
+      angle: '+=15',
+      alpha: { from: 0.6, to: 1.0 },
+      duration: 2500,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
     const swipe = this.add
-      .image(cx, h * 0.28, TEXTURE_KEYS.swipeTrail)
+      .image(cx, h * 0.7, TEXTURE_KEYS.swipeTrail)
       .setOrigin(0.5, 0.5)
-      .setAlpha(0.25);
-    swipe.setScale(Math.min((w * 0.85) / swipe.width, 0.4));
+      .setAlpha(0.2);
+    swipe.setScale(Math.min((w * 1.1) / swipe.width, 0.6));
+    swipe.setDepth(5);
     this.tweens.add({
       targets: swipe,
-      alpha: { from: 0.12, to: 0.38 },
-      duration: 1800,
+      alpha: { from: 0.1, to: 0.3 },
+      scaleX: '+=0.05',
+      duration: 2000,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    const title = this.add
-      .text(cx, h * 0.07, 'CUP CONJURER', {
-        fontFamily: '"Cinzel", "Palatino Linotype", Georgia, serif',
-        fontSize: `${Math.round(44 * (w / 720))}px`,
-        color: '#f4e4bc',
-        stroke: '#3d2914',
-        strokeThickness: 6,
-        letterSpacing: 4,
-      })
-      .setOrigin(0.5);
+    const logo = this.add
+      .image(cx, h * 0.2, TEXTURE_KEYS.gameLogo)
+      .setOrigin(0.5)
+      .setDepth(20);
 
-    this.add
-      .text(cx, title.y + title.height * 0.55, 'Kingdom — Throne of the Hidden Gem', {
-        fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(22 * (w / 720))}px`,
-        fontStyle: 'italic',
-        color: '#d4b896',
-      })
-      .setOrigin(0.5);
+    const logoScale = Math.min((w * 1.1) / logo.width, (h * 0.4) / logo.height);
+    logo.setScale(logoScale);
 
-    this.add
-      .text(cx, h * 0.24, 'Track the royal goblet. Endless rounds. One wrong tap ends the run.', {
-        fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(25 * (w / 720))}px`,
+    const instructionText = this.add
+      .text(cx, h * 0.45, 'Track the royal gem.\nDon\'t blink.', {
+        fontFamily: '"Cinzel", Georgia, serif',
+        fontSize: `${Math.round(34 * (w / 720))}px`,
         color: '#f4e4bc',
         align: 'center',
-        wordWrap: { width: w * 0.85 },
         stroke: '#1a0510',
-        strokeThickness: 3,
+        strokeThickness: 4,
+        lineSpacing: 10,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(20);
+
+    this.tweens.add({
+      targets: instructionText,
+      alpha: { from: 0.8, to: 1 },
+      scale: 1.03,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     const play = this.add
-      .image(cx, cy, TEXTURE_KEYS.playButton)
+      .image(cx, h * 0.7, TEXTURE_KEYS.playButton)
       .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive({ useHandCursor: true })
+      .setDepth(15);
 
     const playScale = Math.min((w * 0.92) / play.width, (h * 0.38) / play.height);
     play.setScale(playScale);
