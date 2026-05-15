@@ -15,20 +15,25 @@ export class StartScene extends Phaser.Scene {
     super({ key: 'StartScene' });
   }
 
+  private isBackgroundLoadingComplete = false;
+
   preload(): void {
     // 1. Critical Assets (Must be loaded before create() is called)
-    // These are small and essential for the Start Screen's first frame.
     this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
     this.load.image(TEXTURE_KEYS.gameLogo, ASSET_URL.gameLogo);
     this.load.image(TEXTURE_KEYS.playButton, ASSET_URL.playButton);
     this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
     this.load.image(TEXTURE_KEYS.swipeTrail, ASSET_URL.swipeTrail);
     this.load.audio(TEXTURE_KEYS.playSound, ASSET_URL.playSound);
+
+    // Error handling for loader
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.error(`Error loading asset: ${file.key}`, file.src);
+    });
   }
 
   create(): void {
     // 2. Start loading non-critical assets in the background
-    // This allows the Start Screen to appear immediately.
     this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
     this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
     this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
@@ -37,28 +42,25 @@ export class StartScene extends Phaser.Scene {
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
     this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
+    
+    this.load.once('complete', () => {
+      this.isBackgroundLoadingComplete = true;
+      console.log('Background loading complete');
+    });
     this.load.start();
 
-    // Signal to YouTube that the game is interactive and the initial bundle load is done.
+    // Signal to YouTube that the game is interactive
     if (typeof (window as any).gameReady === 'function') {
       (window as any).gameReady();
-    } else {
-      console.log('YouTube gameReady signaled');
     }
 
     const startMusic = () => {
-      // Check if music is loaded before trying to play
       if (this.cache.audio.exists(TEXTURE_KEYS.backgroundTone)) {
         if (!this.sound.get(TEXTURE_KEYS.backgroundTone)) {
           this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
         } else if (!this.sound.get(TEXTURE_KEYS.backgroundTone).isPlaying) {
           this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
         }
-      } else {
-        // If not loaded yet, wait for it
-        this.load.once(`filecomplete-audio-${TEXTURE_KEYS.backgroundTone}`, () => {
-          this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-        });
       }
     };
 
@@ -107,18 +109,11 @@ export class StartScene extends Phaser.Scene {
         strokeThickness: 5,
         lineSpacing: 10,
         padding: { x: 10, y: 10 },
-        shadow: {
-          offsetX: 2,
-          offsetY: 2,
-          color: '#000',
-          blur: 6,
-          stroke: true,
-          fill: true
-        }
+        shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 6, stroke: true, fill: true }
       })
       .setOrigin(0.5)
       .setDepth(20)
-      .setResolution(3); // Super-sampled for maximum crispness
+      .setResolution(3);
 
     this.tweens.add({
       targets: this.instructionText,
@@ -142,10 +137,26 @@ export class StartScene extends Phaser.Scene {
     this.playButton.on('pointerout', () => {
       this.playButton.clearTint();
     });
-    this.playButton.on('pointerup', () => {
-      this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
-      this.scene.start('GameScene');
-    });
+
+    const startGame = () => {
+      if (this.isBackgroundLoadingComplete) {
+        this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
+        this.scene.start('GameScene');
+      } else {
+        // Change text to show we are waiting for assets
+        this.instructionText.setText('Channelling spirits...\n(Loading assets)');
+        this.playButton.setAlpha(0.5);
+        this.playButton.disableInteractive();
+        
+        this.load.once('complete', () => {
+          this.isBackgroundLoadingComplete = true;
+          this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
+          this.scene.start('GameScene');
+        });
+      }
+    };
+
+    this.playButton.on('pointerup', startGame);
 
     // Initial layout
     this.refreshLayout();

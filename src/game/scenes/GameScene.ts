@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TEXTURE_KEYS } from '../assets';
+import { ASSET_URL, TEXTURE_KEYS } from '../assets';
 import {
   getIllusionSwapChance,
   getNumCupsForRound,
@@ -66,6 +66,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // Re-declare assets here. Phaser is smart: if they are already in the cache 
+    // or currently being loaded by StartScene, it won't duplicate the request.
+    // This ensures create() ONLY runs when assets are 100% ready.
+    this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
+    this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
+    this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
+    this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
+    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
+    this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
+    this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
+    this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
+    this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
+    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
   }
 
   create(): void {
@@ -75,7 +88,7 @@ export class GameScene extends Phaser.Scene {
       this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
     }
 
-    // Initialize objects (positions will be set in refreshLayout)
+    // Initialize objects
     this.bg = this.add.image(0, 0, TEXTURE_KEYS.background).setOrigin(0.5).setDepth(0);
     this.vignette = this.add.graphics().setDepth(1);
     this.table = this.add.image(0, 0, TEXTURE_KEYS.table).setOrigin(0.5, 0.5).setDepth(10);
@@ -125,10 +138,8 @@ export class GameScene extends Phaser.Scene {
     this.round = 1;
     this.score = 0;
 
-    // Initial layout
     this.refreshLayout();
 
-    // Listen for resize
     this.scale.on('resize', () => {
       this.refreshLayout();
     });
@@ -184,7 +195,6 @@ export class GameScene extends Phaser.Scene {
     this.computeSlotsAndScale();
     this.updateAudioIcon();
 
-    // If game objects exist, sync their positions (unless in shuffle phase)
     if (this.phase !== 'shuffle') {
       this.syncCupPositionsFromSlots();
       if (this.phase === 'reveal' && this.gem.visible) {
@@ -192,12 +202,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (this.gameOverRoot) {
-        this.showGameOver(); // Redraw game over screen
-    }
-    if (this.pauseOverlay) {
-        this.showPauseOverlay(); // Redraw pause overlay
-    }
+    if (this.gameOverRoot) this.showGameOver();
+    if (this.pauseOverlay) this.showPauseOverlay();
   }
 
   private updateHud(): void {
@@ -248,7 +254,6 @@ export class GameScene extends Phaser.Scene {
       this.layout.slotX.push(cx - spanChord / 2 + i * actualStep);
     }
     
-    // Update existing cup sprites display size
     for (const cup of this.cupSprites) {
         this.applyUniformCupDisplaySize(cup);
     }
@@ -264,9 +269,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private destroyCups(): void {
-    for (const c of this.cupSprites) {
-      c.destroy();
-    }
+    for (const c of this.cupSprites) c.destroy();
     this.cupSprites = [];
   }
 
@@ -301,9 +304,7 @@ export class GameScene extends Phaser.Scene {
   private setCupsInteractive(active: boolean): void {
     for (const c of this.cupSprites) {
       c.removeInteractive();
-      if (active) {
-        c.setInteractive({ useHandCursor: true });
-      }
+      if (active) c.setInteractive({ useHandCursor: true });
     }
   }
 
@@ -315,10 +316,7 @@ export class GameScene extends Phaser.Scene {
     const cup = this.cupSprites[cupId];
     if (!cup) return;
     const gem = this.gem;
-    const slotDist =
-      this.numCups > 1
-        ? Math.abs(this.layout.slotX[1]! - this.layout.slotX[0]!)
-        : this.table.displayWidth * 0.22;
+    const slotDist = this.numCups > 1 ? Math.abs(this.layout.slotX[1]! - this.layout.slotX[0]!) : this.table.displayWidth * 0.22;
     const targetGemH = Math.min(cup.displayHeight * 0.48, slotDist * 0.85);
     const gf = gem.frame;
     const gfh = Math.max(gf.height, 1);
@@ -330,12 +328,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async startRound(): Promise<void> {
-    if (this.load.isLoading()) {
-      await new Promise<void>((resolve) => {
-        this.load.once('complete', resolve);
-      });
-    }
-
     this.gameOverRoot?.destroy(true);
     this.gameOverRoot = undefined;
     this.hideGem();
@@ -403,15 +395,10 @@ export class GameScene extends Phaser.Scene {
 
     if (cupId === this.ballCupId) {
       this.score += 1;
-      if (this.score === 5 || this.score === 10 || this.score === 20) {
-        this.showStreakToast(this.score);
-      }
+      if (this.score === 5 || this.score === 10 || this.score === 20) this.showStreakToast(this.score);
       this.round += 1;
       this.updateHud();
-
-      this.showCorrectGuessMessage(() => {
-        void this.startRound();
-      });
+      this.showCorrectGuessMessage(() => { void this.startRound(); });
     } else {
       const correctCup = this.cupSprites[this.ballCupId];
       correctCup.setTexture(TEXTURE_KEYS.openGoblet);
@@ -419,9 +406,7 @@ export class GameScene extends Phaser.Scene {
       correctCup.setDepth(36);
       this.layoutGemForOpenCup(this.ballCupId);
       this.phaseHint.setText('The gem was here…');
-      this.time.delayedCall(900, () => {
-        this.showGameOver();
-      });
+      this.time.delayedCall(900, () => { this.showGameOver(); });
     }
   }
 
@@ -429,15 +414,8 @@ export class GameScene extends Phaser.Scene {
     const { cx, cy, w } = this.layout;
     const messages = ['Well done!', 'Correct!', 'Sharp eyes!', 'You found it!', 'Magnificent!', 'Nicely done!', 'Flawless!'];
     const msg = messages[Phaser.Math.Between(0, messages.length - 1)]!;
-
     const correctCup = this.cupSprites[this.ballCupId];
-    this.tweens.add({
-      targets: correctCup,
-      alpha: 0.4,
-      duration: 120,
-      yoyo: true,
-      repeat: 1,
-    });
+    this.tweens.add({ targets: correctCup, alpha: 0.4, duration: 120, yoyo: true, repeat: 1 });
 
     const t = this.add.text(cx, cy * 0.52, msg, {
         fontFamily: '"Cinzel", Georgia, serif',
@@ -455,10 +433,7 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.Out',
       hold: 520,
       yoyo: true,
-      onComplete: () => {
-        t.destroy();
-        onDone();
-      },
+      onComplete: () => { t.destroy(); onDone(); },
     });
   }
 
@@ -486,15 +461,11 @@ export class GameScene extends Phaser.Scene {
   private showGameOver(): void {
     this.phase = 'gameover';
     this.phaseHint.setText('');
-
     const { w, h, cx, cy } = this.layout;
     if (this.gameOverRoot) this.gameOverRoot.destroy(true);
-    
     this.gameOverRoot = this.add.container(0, 0).setDepth(200);
-
     const dim = this.add.rectangle(cx, cy, w, h, 0x12081c, 0.82).setInteractive();
     this.gameOverRoot.add(dim);
-
     const panel = this.add.text(cx, cy - 40, `The gem slipped away.\n\nFinal streak: ${this.score}`, {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(28 * (w / 720))}px`,
@@ -502,7 +473,6 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
     this.gameOverRoot.add(panel);
-
     const again = this.add.text(cx, cy + 120, 'Play again', {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(26 * (w / 720))}px`,
@@ -510,7 +480,6 @@ export class GameScene extends Phaser.Scene {
         backgroundColor: '#3d2914aa',
         padding: { x: 28, y: 14 },
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    
     again.on('pointerup', () => {
       this.round = 1;
       this.score = 0;
@@ -524,26 +493,12 @@ export class GameScene extends Phaser.Scene {
   private tweenCupPair(cupA: number, cupB: number, xA: number, xB: number, duration: number): Promise<void> {
     const spriteA = this.cupSprites[cupA];
     const spriteB = this.cupSprites[cupB];
+    if (!spriteA || !spriteB) return Promise.resolve();
     return new Promise((resolve) => {
       let done = 0;
-      const check = () => {
-        done += 1;
-        if (done >= 2) resolve();
-      };
-      this.tweens.add({
-        targets: spriteA,
-        x: xA,
-        duration,
-        ease: 'Quad.inOut',
-        onComplete: check,
-      });
-      this.tweens.add({
-        targets: spriteB,
-        x: xB,
-        duration,
-        ease: 'Quad.inOut',
-        onComplete: check,
-      });
+      const check = () => { done += 1; if (done >= 2) resolve(); };
+      this.tweens.add({ targets: spriteA, x: xA, duration, ease: 'Quad.inOut', onComplete: check });
+      this.tweens.add({ targets: spriteB, x: xB, duration, ease: 'Quad.inOut', onComplete: check });
     });
   }
 
@@ -577,27 +532,19 @@ export class GameScene extends Phaser.Scene {
   private async runShufflePhase(): Promise<void> {
     this.phase = 'shuffle';
     this.phaseHint.setText('The spirits shuffle the goblets…');
-
     const swapCount = getSwapCountForRound(this.round);
     const duration = getSwapDurationMsForRound(this.round);
     const illusionChance = getIllusionSwapChance(this.round);
-
     let lastPair: [number, number] | null = null;
-
     for (let s = 0; s < swapCount; s++) {
       if (Math.random() < illusionChance) {
         const [i1, j1] = this.pickTwoDistinctSlots();
         await this.illusionSwap(i1, j1, Math.max(90, Math.floor(duration * 0.28)));
       }
-
       let si: number, sj: number;
       let attempts = 0;
-      do {
-        [si, sj] = this.pickTwoDistinctSlots();
-        attempts++;
-      } while (lastPair !== null && si === lastPair[0] && sj === lastPair[1] && attempts < 6);
+      do { [si, sj] = this.pickTwoDistinctSlots(); attempts++; } while (lastPair !== null && si === lastPair[0] && sj === lastPair[1] && attempts < 6);
       lastPair = [si, sj];
-
       await this.commitSwap(si, sj, duration);
     }
   }
@@ -620,18 +567,15 @@ export class GameScene extends Phaser.Scene {
   private showPauseOverlay(): void {
     const { w, h, cx, cy } = this.layout;
     if (this.pauseOverlay) this.pauseOverlay.destroy();
-    
     this.pauseOverlay = this.add.container(0, 0).setDepth(300);
     const dim = this.add.rectangle(cx, cy, w, h, 0x000000, 0.6).setInteractive();
     this.pauseOverlay.add(dim);
-
     const title = this.add.text(cx, cy - 40, 'PAUSED', {
       fontFamily: '"Cinzel", Georgia, serif',
       fontSize: `${Math.round(48 * (w / 720))}px`,
       color: '#f4e4bc',
     }).setOrigin(0.5);
     this.pauseOverlay.add(title);
-
     const resume = this.add.text(cx, cy + 80, 'Resume', {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(28 * (w / 720))}px`,
@@ -639,7 +583,6 @@ export class GameScene extends Phaser.Scene {
         backgroundColor: '#3d2914aa',
         padding: { x: 30, y: 15 },
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
     resume.on('pointerup', () => this.togglePause());
     this.pauseOverlay.add(resume);
   }
