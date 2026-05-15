@@ -102,12 +102,14 @@ export class StartScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(cx, h * 0.2, 'Track the royal goblet. Endless rounds. One wrong tap ends the run.', {
+      .text(cx, h * 0.24, 'Track the royal goblet. Endless rounds. One wrong tap ends the run.', {
         fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(18 * (w / 720))}px`,
-        color: '#c9b59a',
+        fontSize: `${Math.round(25 * (w / 720))}px`,
+        color: '#f4e4bc',
         align: 'center',
-        wordWrap: { width: w * 0.82 },
+        wordWrap: { width: w * 0.85 },
+        stroke: '#1a0510',
+        strokeThickness: 3,
       })
       .setOrigin(0.5);
 

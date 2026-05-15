@@ -100,8 +100,8 @@ export class GameScene extends Phaser.Scene {
     vignette.fillRect(0, 0, w, h);
     vignette.setDepth(1);
 
-    this.table = this.add.image(cx, cy, TEXTURE_KEYS.table).setOrigin(0.5, 0.5);
-    const tableScale = Math.min((w * 1.08) / this.table.width, (h * 0.62) / this.table.height);
+    this.table = this.add.image(cx, h * 0.58, TEXTURE_KEYS.table).setOrigin(0.5, 0.5);
+    const tableScale = Math.min((w * 0.94) / this.table.width, (h * 0.62) / this.table.height);
     this.table.setScale(tableScale);
     this.table.setDepth(10);
 
@@ -152,12 +152,14 @@ export class GameScene extends Phaser.Scene {
     this.updateAudioIcon();
 
     this.phaseHint = this.add
-      .text(cx, h * 0.11, '', {
+      .text(cx, h * 0.19, '', {
         fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(17 * (w / 720))}px`,
-        color: '#d4c4a8',
+        fontSize: `${Math.round(27 * (w / 720))}px`,
+        color: '#f4e4bc',
         align: 'center',
-        wordWrap: { width: w * 0.9 },
+        wordWrap: { width: w * 0.92 },
+        stroke: '#1a0510',
+        strokeThickness: 4,
       })
       .setOrigin(0.5, 0)
       .setDepth(uiDepth);
@@ -214,7 +216,7 @@ export class GameScene extends Phaser.Scene {
       else high = mid;
     }
 
-    this.layout.cupTargetDisplayHeight = low * 1.55;
+    this.layout.cupTargetDisplayHeight = low * 1.75;
 
     const spanChord = maxSpanChordForHeight(low);
 
