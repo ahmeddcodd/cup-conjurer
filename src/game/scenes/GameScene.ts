@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_URL, TEXTURE_KEYS } from '../assets';
+import { TEXTURE_KEYS } from '../assets';
 import {
   getIllusionSwapChance,
   getNumCupsForRound,
@@ -36,6 +36,8 @@ export class GameScene extends Phaser.Scene {
     tableDisplayWidth: 1,
   };
 
+  private bg!: Phaser.GameObjects.Image;
+  private vignette!: Phaser.GameObjects.Graphics;
   private table!: Phaser.GameObjects.Image;
   private readonly tabletopBand = 0.60;
 
@@ -57,17 +59,78 @@ export class GameScene extends Phaser.Scene {
   private pauseOverlay?: Phaser.GameObjects.Container;
   private isPaused = false;
   private audioBtn!: Phaser.GameObjects.Image;
+  private pauseBtn!: Phaser.GameObjects.Image;
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
   preload(): void {
-    // Assets are now preloaded in StartScene to minimize initial wait time
-    // and allow for background loading while the player is on the start screen.
   }
 
   create(): void {
+    if (!this.sound.get(TEXTURE_KEYS.backgroundTone)) {
+      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
+    } else if (!this.sound.get(TEXTURE_KEYS.backgroundTone).isPlaying) {
+      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
+    }
+
+    // Initialize objects (positions will be set in refreshLayout)
+    this.bg = this.add.image(0, 0, TEXTURE_KEYS.background).setOrigin(0.5).setDepth(0);
+    this.vignette = this.add.graphics().setDepth(1);
+    this.table = this.add.image(0, 0, TEXTURE_KEYS.table).setOrigin(0.5, 0.5).setDepth(10);
+    this.gem = this.add.image(0, 0, TEXTURE_KEYS.diamond).setVisible(false).setDepth(45);
+
+    const uiDepth = 100;
+    this.hudRound = this.add.text(0, 0, '', {
+        fontFamily: '"Cinzel", Georgia, serif',
+        color: '#f4e4bc',
+        stroke: '#1a0510',
+        strokeThickness: 3,
+      }).setDepth(uiDepth);
+
+    this.hudScore = this.add.text(0, 0, '', {
+        fontFamily: '"Cinzel", Georgia, serif',
+        color: '#f4e4bc',
+        stroke: '#1a0510',
+        strokeThickness: 3,
+      }).setOrigin(1, 0).setDepth(uiDepth);
+
+    this.pauseBtn = this.add.image(0, 0, TEXTURE_KEYS.pauseButton)
+      .setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(uiDepth);
+    this.pauseBtn.on('pointerup', () => this.togglePause());
+
+    this.audioBtn = this.add.image(0, 0, TEXTURE_KEYS.audioOn)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(uiDepth);
+    this.audioBtn.on('pointerup', () => this.toggleAudio());
+
+    this.phaseHint = this.add.text(0, 0, '', {
+        fontFamily: '"Crimson Text", Georgia, serif',
+        color: '#f4e4bc',
+        align: 'center',
+        stroke: '#1a0510',
+        strokeThickness: 4,
+      }).setOrigin(0.5, 0).setDepth(uiDepth);
+
+    this.round = 1;
+    this.score = 0;
+
+    // Initial layout
+    this.refreshLayout();
+
+    // Listen for resize
+    this.scale.on('resize', () => {
+      this.refreshLayout();
+    });
+
+    void this.startRound();
+  }
+
+  private refreshLayout(): void {
     const w = this.scale.width;
     const h = this.scale.height;
     const cx = w / 2;
@@ -77,93 +140,58 @@ export class GameScene extends Phaser.Scene {
     this.layout.cx = cx;
     this.layout.cy = cy;
 
-    if (!this.sound.get(TEXTURE_KEYS.backgroundTone)) {
-      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-    } else if (!this.sound.get(TEXTURE_KEYS.backgroundTone).isPlaying) {
-      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-    }
+    this.bg.setPosition(cx, cy);
+    const cover = Math.max(w / this.bg.width, h / this.bg.height) * 1.02;
+    this.bg.setScale(cover);
 
-    const bg = this.add.image(cx, cy, TEXTURE_KEYS.background).setOrigin(0.5);
-    const cover = Math.max(w / bg.width, h / bg.height) * 1.02;
-    bg.setScale(cover);
-    bg.setDepth(0);
+    this.vignette.clear();
+    this.vignette.fillGradientStyle(0x1a0510, 0x1a0510, 0x0a0208, 0x0a0208, 0.45, 0.45, 0.65, 0.65);
+    this.vignette.fillRect(0, 0, w, h);
 
-    const vignette = this.add.graphics();
-    vignette.fillGradientStyle(0x1a0510, 0x1a0510, 0x0a0208, 0x0a0208, 0.45, 0.45, 0.65, 0.65);
-    vignette.fillRect(0, 0, w, h);
-    vignette.setDepth(1);
-
-    this.table = this.add.image(cx, h * 0.58, TEXTURE_KEYS.table).setOrigin(0.5, 0.5);
+    this.table.setPosition(cx, h * 0.58);
     const tableScale = Math.min((w * 1.00) / this.table.width, (h * 0.62) / this.table.height);
     this.table.setScale(tableScale);
-    this.table.setDepth(10);
 
     this.layout.tableDisplayWidth = this.table.displayWidth;
     this.layout.tableDisplayHeight = this.table.displayHeight;
     this.layout.tableTop = this.table.y - this.table.displayHeight * 0.5;
     this.layout.cupFootY = this.layout.tableTop + this.table.displayHeight * this.tabletopBand;
 
-    this.gem = this.add
-      .image(0, 0, TEXTURE_KEYS.diamond)
-      .setVisible(false)
-      .setDepth(45);
+    this.hudRound.setPosition(20, 18);
+    this.hudRound.setStyle({ fontSize: `${Math.round(28 * (w / 720))}px` });
 
-    const uiDepth = 100;
-    this.hudRound = this.add
-      .text(20, 18, '', {
-        fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: `${Math.round(28 * (w / 720))}px`,
-        color: '#f4e4bc',
-        stroke: '#1a0510',
-        strokeThickness: 3,
-      })
-      .setDepth(uiDepth);
+    this.hudScore.setPosition(w - 20, 18);
+    this.hudScore.setStyle({ fontSize: `${Math.round(28 * (w / 720))}px` });
 
-    this.hudScore = this.add
-      .text(w - 20, 18, '', {
-        fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: `${Math.round(28 * (w / 720))}px`,
-        color: '#f4e4bc',
-        stroke: '#1a0510',
-        strokeThickness: 3,
-      })
-      .setOrigin(1, 0)
-      .setDepth(uiDepth);
+    this.pauseBtn.setPosition(w, 50);
+    this.pauseBtn.setScale(0.17 * (w / 720));
 
-    const pauseBtn = this.add
-      .image(w, 50, TEXTURE_KEYS.pauseButton)
-      .setOrigin(1, 0)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(uiDepth);
-
-    pauseBtn.setScale(0.17 * (w / 720));
-    pauseBtn.on('pointerup', () => this.togglePause());
-
-    this.audioBtn = this.add
-      .image(20, 50, TEXTURE_KEYS.audioOn)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(uiDepth);
+    this.audioBtn.setPosition(20, 50);
     this.audioBtn.setScale(0.17 * (w / 720));
-    this.audioBtn.on('pointerup', () => this.toggleAudio());
+
+    this.phaseHint.setPosition(cx, h * 0.19);
+    this.phaseHint.setStyle({ 
+        fontSize: `${Math.round(32 * (w / 720))}px`,
+        wordWrap: { width: w * 0.92 }
+    });
+
+    this.computeSlotsAndScale();
     this.updateAudioIcon();
 
-    this.phaseHint = this.add
-      .text(cx, h * 0.19, '', {
-        fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(32 * (w / 720))}px`,
-        color: '#f4e4bc',
-        align: 'center',
-        wordWrap: { width: w * 0.92 },
-        stroke: '#1a0510',
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(uiDepth);
+    // If game objects exist, sync their positions (unless in shuffle phase)
+    if (this.phase !== 'shuffle') {
+      this.syncCupPositionsFromSlots();
+      if (this.phase === 'reveal' && this.gem.visible) {
+        this.layoutGemForOpenCup(this.ballCupId);
+      }
+    }
 
-    this.round = 1;
-    this.score = 0;
-    void this.startRound();
+    if (this.gameOverRoot) {
+        this.showGameOver(); // Redraw game over screen
+    }
+    if (this.pauseOverlay) {
+        this.showPauseOverlay(); // Redraw pause overlay
+    }
   }
 
   private updateHud(): void {
@@ -171,11 +199,6 @@ export class GameScene extends Phaser.Scene {
     this.hudScore.setText(`Streak ${this.score}`);
   }
 
-  /**
-   * Goblets were laid out with **90% of screen width**, wider than the **table art**, so outer cups
-   * crossed the gold rim. Here span and height come from the **table sprite width**: outer cup
-   * center offset + half-width stay inside a horizontal "wood" limit derived from `displayWidth`.
-   */
   private computeSlotsAndScale(): void {
     const { cx, h } = this.layout;
     const tw = this.table.displayWidth;
@@ -187,14 +210,12 @@ export class GameScene extends Phaser.Scene {
     const aspect = fw / fh;
     probe.destroy();
 
-    /** From table center, max X for outer **rim** of a goblet (inside the round wood / gold ring). */
     const rimInset = tw * 0.028;
     const maxOuterXFromCenter = tw * 0.44 - rimInset;
 
     const displayW = (cupH: number) => aspect * cupH;
     const halfW = (cupH: number) => displayW(cupH) / 2;
 
-    /** Outer slots at ±spanChord/2: need spanChord/2 + halfW ≤ maxOuterXFromCenter */
     const maxSpanChordForHeight = (cupH: number) =>
       2 * Math.max(0, maxOuterXFromCenter - halfW(cupH));
 
@@ -214,17 +235,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.layout.cupTargetDisplayHeight = low * 1.75;
-
     const spanChord = maxSpanChordForHeight(low);
-
     const actualStep = this.numCups > 1 ? spanChord / (this.numCups - 1) : 0;
     this.layout.slotX = [];
     for (let i = 0; i < this.numCups; i++) {
       this.layout.slotX.push(cx - spanChord / 2 + i * actualStep);
     }
+    
+    // Update existing cup sprites display size
+    for (const cup of this.cupSprites) {
+        this.applyUniformCupDisplaySize(cup);
+    }
   }
 
-  /** Same on-screen height for closed + open art (different source frames). */
   private applyUniformCupDisplaySize(cup: Phaser.GameObjects.Image): void {
     const targetH = this.layout.cupTargetDisplayHeight;
     const f = cup.frame;
@@ -263,7 +286,9 @@ export class GameScene extends Phaser.Scene {
     for (let id = 0; id < this.numCups; id++) {
       const s = this.slotOfCup(id);
       const x = this.layout.slotX[s] ?? this.layout.cx;
-      this.cupSprites[id].setPosition(x, this.layout.cupFootY);
+      if (this.cupSprites[id]) {
+        this.cupSprites[id].setPosition(x, this.layout.cupFootY);
+      }
     }
   }
 
@@ -278,11 +303,11 @@ export class GameScene extends Phaser.Scene {
 
   private hideGem(): void {
     this.gem.setVisible(false);
-    this.gem.setDepth(45);
   }
 
   private layoutGemForOpenCup(cupId: number): void {
     const cup = this.cupSprites[cupId];
+    if (!cup) return;
     const gem = this.gem;
     const slotDist =
       this.numCups > 1
@@ -293,17 +318,12 @@ export class GameScene extends Phaser.Scene {
     const gfh = Math.max(gf.height, 1);
     const gfw = gf.width;
     gem.setDisplaySize((gfw / gfh) * targetGemH, targetGemH);
-
-    // cup.x is the goblet's horizontal centre (origin 0.5, 1).
-    // The gem sprite has slight left-side padding so its visual centre sits right of the
-    // sprite centre — a 3% cup-width nudge left corrects it without overcorrecting.
     gem.setPosition(cup.x - cup.displayWidth * 0.03, cup.y - cup.displayHeight * 0.63);
     gem.setDepth(48);
     gem.setVisible(true);
   }
 
   private async startRound(): Promise<void> {
-    // Safety check: Ensure all background-loaded assets are ready before starting the first round
     if (this.load.isLoading()) {
       await new Promise<void>((resolve) => {
         this.load.once('complete', resolve);
@@ -344,7 +364,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.layoutGemForOpenCup(this.ballCupId);
 
-    // Reveal window shrinks each round down to a 900 ms floor (was frozen at round 8).
     const revealMs = Math.max(900, 2200 - Math.min(this.round, 16) * 80);
     await sleep(this, revealMs);
 
@@ -373,7 +392,7 @@ export class GameScene extends Phaser.Scene {
 
   private onCupGuess(cupId: number): void {
     if (this.phase !== 'guess') return;
-    this.phase = 'reveal'; // lock out further taps immediately
+    this.phase = 'reveal';
     this.setCupsInteractive(false);
 
     if (cupId === this.ballCupId) {
@@ -384,13 +403,10 @@ export class GameScene extends Phaser.Scene {
       this.round += 1;
       this.updateHud();
 
-      // Show correct-guess feedback before starting the next round.
       this.showCorrectGuessMessage(() => {
         void this.startRound();
       });
     } else {
-      // Bug 1 fix: briefly open the correct cup so the player sees where the gem was
-      // before the game over screen appears.
       const correctCup = this.cupSprites[this.ballCupId];
       correctCup.setTexture(TEXTURE_KEYS.openGoblet);
       this.applyUniformCupDisplaySize(correctCup);
@@ -405,19 +421,9 @@ export class GameScene extends Phaser.Scene {
 
   private showCorrectGuessMessage(onDone: () => void): void {
     const { cx, cy, w } = this.layout;
-
-    const messages = [
-      'Well done!',
-      'Correct!',
-      'Sharp eyes!',
-      'You found it!',
-      'Magnificent!',
-      'Nicely done!',
-      'Flawless!',
-    ];
+    const messages = ['Well done!', 'Correct!', 'Sharp eyes!', 'You found it!', 'Magnificent!', 'Nicely done!', 'Flawless!'];
     const msg = messages[Phaser.Math.Between(0, messages.length - 1)]!;
 
-    // Dim flash on the correct cup
     const correctCup = this.cupSprites[this.ballCupId];
     this.tweens.add({
       targets: correctCup,
@@ -427,18 +433,13 @@ export class GameScene extends Phaser.Scene {
       repeat: 1,
     });
 
-    // Floating text
-    const t = this.add
-      .text(cx, cy * 0.52, msg, {
+    const t = this.add.text(cx, cy * 0.52, msg, {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(32 * (w / 720))}px`,
         color: '#ffe29a',
         stroke: '#4a320f',
         strokeThickness: 5,
-      })
-      .setOrigin(0.5)
-      .setDepth(160)
-      .setAlpha(0);
+      }).setOrigin(0.5).setDepth(160).setAlpha(0);
 
     this.tweens.add({
       targets: t,
@@ -457,23 +458,14 @@ export class GameScene extends Phaser.Scene {
 
   private showStreakToast(streak: number): void {
     const { cx, cy, w } = this.layout;
-    const msg =
-      streak === 5
-        ? 'Royal streak — 5 correct!'
-        : streak === 10
-          ? 'Magnificent — 10 in a row!'
-          : 'Legendary — 20 correct!';
-    const t = this.add
-      .text(cx, cy * 0.42, msg, {
+    const msg = streak === 5 ? 'Royal streak — 5 correct!' : streak === 10 ? 'Magnificent — 10 in a row!' : 'Legendary — 20 correct!';
+    const t = this.add.text(cx, cy * 0.42, msg, {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(24 * (w / 720))}px`,
         color: '#ffe29a',
         stroke: '#4a320f',
         strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setDepth(150)
-      .setAlpha(0);
+      }).setOrigin(0.5).setDepth(150).setAlpha(0);
     this.tweens.add({
       targets: t,
       alpha: 1,
@@ -490,54 +482,40 @@ export class GameScene extends Phaser.Scene {
     this.phaseHint.setText('');
 
     const { w, h, cx, cy } = this.layout;
-    const root = this.add.container(0, 0).setDepth(200);
+    if (this.gameOverRoot) this.gameOverRoot.destroy(true);
+    
+    this.gameOverRoot = this.add.container(0, 0).setDepth(200);
 
     const dim = this.add.rectangle(cx, cy, w, h, 0x12081c, 0.82).setInteractive();
-    root.add(dim);
+    this.gameOverRoot.add(dim);
 
-    const panel = this.add.text(
-      cx,
-      cy - 40,
-      `The gem slipped away.\n\nFinal streak: ${this.score}`,
-      {
+    const panel = this.add.text(cx, cy - 40, `The gem slipped away.\n\nFinal streak: ${this.score}`, {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(28 * (w / 720))}px`,
         color: '#f4e4bc',
         align: 'center',
-      },
-    );
-    panel.setOrigin(0.5);
-    root.add(panel);
+      }).setOrigin(0.5);
+    this.gameOverRoot.add(panel);
 
-    const again = this.add
-      .text(cx, cy + 120, 'Play again', {
+    const again = this.add.text(cx, cy + 120, 'Play again', {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(26 * (w / 720))}px`,
         color: '#ffd873',
         backgroundColor: '#3d2914aa',
         padding: { x: 28, y: 14 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    
     again.on('pointerup', () => {
       this.round = 1;
       this.score = 0;
-      root.destroy(true);
+      this.gameOverRoot?.destroy(true);
       this.gameOverRoot = undefined;
       void this.startRound();
     });
-    root.add(again);
-
-    this.gameOverRoot = root;
+    this.gameOverRoot.add(again);
   }
 
-  private tweenCupPair(
-    cupA: number,
-    cupB: number,
-    xA: number,
-    xB: number,
-    duration: number,
-  ): Promise<void> {
+  private tweenCupPair(cupA: number, cupB: number, xA: number, xB: number, duration: number): Promise<void> {
     const spriteA = this.cupSprites[cupA];
     const spriteB = this.cupSprites[cupB];
     return new Promise((resolve) => {
@@ -586,9 +564,7 @@ export class GameScene extends Phaser.Scene {
     const n = this.numCups;
     const i = Phaser.Math.Between(0, n - 1);
     let j = Phaser.Math.Between(0, n - 1);
-    while (j === i) {
-      j = Phaser.Math.Between(0, n - 1);
-    }
+    while (j === i) j = Phaser.Math.Between(0, n - 1);
     return i < j ? [i, j] : [j, i];
   }
 
@@ -608,19 +584,12 @@ export class GameScene extends Phaser.Scene {
         await this.illusionSwap(i1, j1, Math.max(90, Math.floor(duration * 0.28)));
       }
 
-      // Bug 3 fix: avoid picking the same slot pair twice in a row, which would
-      // silently undo the previous swap and make the shuffle trivially easy.
       let si: number, sj: number;
       let attempts = 0;
       do {
         [si, sj] = this.pickTwoDistinctSlots();
         attempts++;
-      } while (
-        lastPair !== null &&
-        si === lastPair[0] &&
-        sj === lastPair[1] &&
-        attempts < 6
-      );
+      } while (lastPair !== null && si === lastPair[0] && sj === lastPair[1] && attempts < 6);
       lastPair = [si, sj];
 
       await this.commitSwap(si, sj, duration);
@@ -629,7 +598,6 @@ export class GameScene extends Phaser.Scene {
 
   private togglePause(): void {
     if (this.phase === 'gameover') return;
-
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
       this.tweens.pauseAll();
@@ -645,8 +613,9 @@ export class GameScene extends Phaser.Scene {
 
   private showPauseOverlay(): void {
     const { w, h, cx, cy } = this.layout;
+    if (this.pauseOverlay) this.pauseOverlay.destroy();
+    
     this.pauseOverlay = this.add.container(0, 0).setDepth(300);
-
     const dim = this.add.rectangle(cx, cy, w, h, 0x000000, 0.6).setInteractive();
     this.pauseOverlay.add(dim);
 
@@ -654,20 +623,16 @@ export class GameScene extends Phaser.Scene {
       fontFamily: '"Cinzel", Georgia, serif',
       fontSize: `${Math.round(48 * (w / 720))}px`,
       color: '#f4e4bc',
-    });
-    title.setOrigin(0.5);
+    }).setOrigin(0.5);
     this.pauseOverlay.add(title);
 
-    const resume = this.add
-      .text(cx, cy + 80, 'Resume', {
+    const resume = this.add.text(cx, cy + 80, 'Resume', {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(28 * (w / 720))}px`,
         color: '#ffd873',
         backgroundColor: '#3d2914aa',
         padding: { x: 30, y: 15 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     resume.on('pointerup', () => this.togglePause());
     this.pauseOverlay.add(resume);
@@ -679,8 +644,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateAudioIcon(): void {
-    // When audio is ON (not muted), show the "audio off" spirit (the mute action icon)
-    // When audio is OFF (muted), show the "audio on" spirit (the unmute action icon)
     if (this.sound.mute) {
       this.audioBtn.setTexture(TEXTURE_KEYS.audioOn);
     } else {

@@ -2,19 +2,15 @@ import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { StartScene } from './scenes/StartScene';
 
-const LOGICAL_WIDTH = 720;
-const LOGICAL_HEIGHT = 1280;
-
 export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
-    width: LOGICAL_WIDTH,
-    height: LOGICAL_HEIGHT,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#12081c',
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      mode: Phaser.Scale.RESIZE,
     },
     scene: [StartScene, GameScene],
   });
