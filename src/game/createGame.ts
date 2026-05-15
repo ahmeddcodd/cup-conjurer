@@ -16,7 +16,6 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
       roundPixels: true,
       mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
     },
-    resolution: Math.max(window.devicePixelRatio || 1, 2),
     scale: {
       mode: Phaser.Scale.RESIZE,
     },
