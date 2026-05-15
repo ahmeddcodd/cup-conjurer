@@ -158,7 +158,7 @@ export class GameScene extends Phaser.Scene {
     this.phaseHint = this.add
       .text(cx, h * 0.19, '', {
         fontFamily: '"Crimson Text", Georgia, serif',
-        fontSize: `${Math.round(27 * (w / 720))}px`,
+        fontSize: `${Math.round(32 * (w / 720))}px`,
         color: '#f4e4bc',
         align: 'center',
         wordWrap: { width: w * 0.92 },
