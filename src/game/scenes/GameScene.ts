@@ -102,7 +102,7 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 3,
         padding: { x: 4, y: 4 },
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, stroke: true, fill: true }
-      }).setDepth(uiDepth).setResolution(3);
+      }).setDepth(uiDepth).setResolution(4); // Ultra-high resolution for premium quality
 
     this.hudScore = this.add.text(0, 0, '', {
         fontFamily: '"Cinzel", Georgia, serif',
@@ -111,7 +111,7 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 3,
         padding: { x: 4, y: 4 },
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, stroke: true, fill: true }
-      }).setOrigin(1, 0).setDepth(uiDepth).setResolution(3);
+      }).setOrigin(1, 0).setDepth(uiDepth).setResolution(4);
 
     this.pauseBtn = this.add.image(0, 0, TEXTURE_KEYS.pauseButton)
       .setOrigin(1, 0)
@@ -133,7 +133,7 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 4,
         padding: { x: 10, y: 4 },
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, stroke: true, fill: true }
-      }).setOrigin(0.5, 0).setDepth(uiDepth).setResolution(3);
+      }).setOrigin(0.5, 0).setDepth(uiDepth).setResolution(4);
 
     this.round = 1;
     this.score = 0;
