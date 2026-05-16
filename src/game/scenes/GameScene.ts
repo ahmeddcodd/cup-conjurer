@@ -21,6 +21,9 @@ function sleep(scene: Phaser.Scene, ms: number): Promise<void> {
   });
 }
 
+/** Time to read the reveal instruction before the gem is shown. */
+const REVEAL_INSTRUCTION_READ_MS = 3500;
+
 export class GameScene extends Phaser.Scene {
   private layout = {
     w: 720,
@@ -303,9 +306,41 @@ export class GameScene extends Phaser.Scene {
 
   private setCupsInteractive(active: boolean): void {
     for (const c of this.cupSprites) {
+      c.removeAllListeners('pointerup');
       c.removeInteractive();
-      if (active) c.setInteractive({ useHandCursor: true });
+      if (!active) continue;
+
+      // Use the texture-frame hit box (Phaser coordinates are frame-space, not display-space).
+      c.setInteractive({ useHandCursor: true });
+      c.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (this.phase !== 'guess') return;
+        const slot = this.resolveTappedSlot(pointer);
+        if (slot < 0) return;
+        this.onCupGuess(this.cupAtSlot[slot]!);
+      });
     }
+  }
+
+  /** Pick the table slot closest to the tap (shell-game position, not topmost sprite). */
+  private resolveTappedSlot(pointer: Phaser.Input.Pointer): number {
+    const x = pointer.worldX;
+    let bestSlot = 0;
+    let bestDist = Infinity;
+    for (let slot = 0; slot < this.numCups; slot++) {
+      const slotX = this.layout.slotX[slot];
+      if (slotX === undefined) continue;
+      const dist = Math.abs(x - slotX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSlot = slot;
+      }
+    }
+    const slotSpan =
+      this.numCups > 1
+        ? Math.abs(this.layout.slotX[1]! - this.layout.slotX[0]!)
+        : this.cupSprites[0]?.displayWidth ?? 120;
+    if (bestDist > slotSpan * 0.5) return -1;
+    return bestSlot;
   }
 
   private hideGem(): void {
@@ -349,6 +384,8 @@ export class GameScene extends Phaser.Scene {
         : 'The gem is revealed under one goblet. Memorize it before the shuffle.',
     );
 
+    await sleep(this, REVEAL_INSTRUCTION_READ_MS);
+
     for (let id = 0; id < this.numCups; id++) {
       const cup = this.cupSprites[id];
       if (id === this.ballCupId) {
@@ -378,14 +415,6 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'guess';
     this.phaseHint.setText('Tap the goblet that hides the royal gem.');
     this.setCupsInteractive(true);
-
-    for (let id = 0; id < this.numCups; id++) {
-      const cupId = id;
-      this.cupSprites[id].once('pointerup', () => {
-        if (this.phase !== 'guess') return;
-        this.onCupGuess(cupId);
-      });
-    }
   }
 
   private onCupGuess(cupId: number): void {
