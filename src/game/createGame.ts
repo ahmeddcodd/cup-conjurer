@@ -1,27 +1,33 @@
 import Phaser from 'phaser';
+import { DESIGN_HEIGHT, DESIGN_WIDTH } from './displayProfile';
 import { GameScene } from './scenes/GameScene';
 import { StartScene } from './scenes/StartScene';
 
 export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
-  return new Phaser.Game({
-    type: Phaser.WEBGL, // Prefer WebGL for better mobile performance and clarity
+  const game = new Phaser.Game({
+    type: Phaser.WEBGL,
     parent,
-    width: '100%',
-    height: '100%',
+    width: DESIGN_WIDTH,
+    height: DESIGN_HEIGHT,
     backgroundColor: '#12081c',
-    render: {
-      antialias: false, // Disabling antialias on High-DPI mobile makes text and edges much sharper
-      antialiasGL: false,
-      pixelArt: false,
-      roundPixels: true,
-      powerPreference: 'high-performance', // Request maximum GPU power on mobile
-      mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
-    },
-    // Ensure we use the physical pixel density of the mobile device
-    ...({ resolution: window.devicePixelRatio || 1 } as any),
+    antialias: true,
+    antialiasGL: true,
+    roundPixels: false,
+    mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
     scale: {
-      mode: Phaser.Scale.RESIZE,
+      // EXPAND: CSS-fits the parent (full #root) and grows the canvas buffer when possible.
+      mode: Phaser.Scale.EXPAND,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: DESIGN_WIDTH,
+      height: DESIGN_HEIGHT,
+    },
+    callbacks: {
+      postBoot: (bootedGame) => {
+        Phaser.Display.Canvas.CanvasInterpolation.setBicubic(bootedGame.canvas);
+      },
     },
     scene: [StartScene, GameScene],
   });
+
+  return game;
 }

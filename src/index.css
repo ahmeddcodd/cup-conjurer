@@ -20,20 +20,8 @@ body,
   position: relative;
 }
 
-.phaser-host {
-  width: 100%;
-  height: 100%;
-}
-
-.phaser-host canvas {
+/* Let Phaser Scale Manager own canvas size, margins, and centering. */
+#root canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
-  image-rendering: -webkit-optimize-contrast; /* iOS Safari Sharpness */
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
-  -ms-interpolation-mode: nearest-neighbor;
+  touch-action: none;
 }
-
-
-
