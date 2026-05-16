@@ -6,6 +6,22 @@ import {
   getSwapCountForRound,
   getSwapDurationMsForRound,
 } from '../gameplay/roundParams';
+import {
+  canUserToggleAudio,
+  ensureBackgroundMusic,
+  isEffectivelyMuted,
+  onPlayablesAudioUiChange,
+  toggleUserAudio,
+} from '../playables/playablesAudio';
+import { sendPlayablesScore } from '../playables/playablesEngagement';
+import type { PlayablesGameplayHost } from '../playables/playablesGameplay';
+import { PLAYABLES_LAYOUT_EVENT } from '../playables/playablesGameplay';
+import { isPlatformPaused } from '../playables/playablesPlatform';
+import {
+  buildSaveFromGame,
+  getLoadedSave,
+  savePlayablesProgress,
+} from '../playables/playablesSave';
 
 /**
  * Registry: which **cup identity** (0…n-1) hides the gem for the current shuffle.
@@ -24,7 +40,7 @@ function sleep(scene: Phaser.Scene, ms: number): Promise<void> {
 /** Time to read the reveal instruction before the gem is shown. */
 const REVEAL_INSTRUCTION_READ_MS = 3500;
 
-export class GameScene extends Phaser.Scene {
+export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   private layout = {
     w: 720,
     h: 1280,
@@ -53,6 +69,7 @@ export class GameScene extends Phaser.Scene {
 
   private round = 1;
   private score = 0;
+  private bestStreak = 0;
   private phase: Phase = 'reveal';
 
   private hudRound!: Phaser.GameObjects.Text;
@@ -63,6 +80,7 @@ export class GameScene extends Phaser.Scene {
   private isPaused = false;
   private audioBtn!: Phaser.GameObjects.Image;
   private pauseBtn!: Phaser.GameObjects.Image;
+  private unsubscribeAudio?: () => void;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -80,16 +98,17 @@ export class GameScene extends Phaser.Scene {
     this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
-    this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
   }
 
   create(): void {
-    if (!this.sound.get(TEXTURE_KEYS.backgroundTone)) {
-      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-    } else if (!this.sound.get(TEXTURE_KEYS.backgroundTone).isPlaying) {
-      this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-    }
+    const startMusic = () => {
+      ensureBackgroundMusic(this);
+    };
+    this.unsubscribeAudio = onPlayablesAudioUiChange(() => {
+      this.updateAudioIcon();
+    });
+    startMusic();
 
     // Initialize objects
     this.bg = this.add.image(0, 0, TEXTURE_KEYS.background).setOrigin(0.5).setDepth(0);
@@ -127,6 +146,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(uiDepth);
     this.audioBtn.on('pointerup', () => this.toggleAudio());
+    this.updateAudioIcon();
 
     this.phaseHint = this.add.text(0, 0, '', {
         fontFamily: '"Crimson Text", Georgia, serif',
@@ -138,6 +158,8 @@ export class GameScene extends Phaser.Scene {
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, stroke: true, fill: true }
       }).setOrigin(0.5, 0).setDepth(uiDepth);
 
+    const save = getLoadedSave();
+    this.bestStreak = save?.bestStreak ?? 0;
     this.round = 1;
     this.score = 0;
 
@@ -147,7 +169,37 @@ export class GameScene extends Phaser.Scene {
       this.refreshLayout();
     });
 
+    this.game.events.on(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
+
     void this.startRound();
+  }
+
+  handlePlatformPause(): void {
+    this.input.enabled = false;
+    this.tweens.pauseAll();
+    this.time.paused = true;
+  }
+
+  handlePlatformResume(): void {
+    this.input.enabled = true;
+    this.game.input.enabled = true;
+    this.time.paused = false;
+    this.tweens.resumeAll();
+
+    if (this.isPaused) {
+      this.time.paused = true;
+      this.tweens.pauseAll();
+    } else if (this.phase === 'guess') {
+      this.setCupsInteractive(true);
+    }
+
+    this.refreshLayout();
+  }
+
+  shutdown(): void {
+    this.game.events.off(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
+    this.unsubscribeAudio?.();
+    this.unsubscribeAudio = undefined;
   }
 
   private refreshLayout(): void {
@@ -212,6 +264,12 @@ export class GameScene extends Phaser.Scene {
   private updateHud(): void {
     this.hudRound.setText(`Round ${this.round}`);
     this.hudScore.setText(`Streak ${this.score}`);
+  }
+
+  private persistProgress(): void {
+    this.bestStreak = Math.max(this.bestStreak, this.score);
+    const payload = buildSaveFromGame(this.round, this.score, this.bestStreak);
+    void savePlayablesProgress(payload);
   }
 
   private computeSlotsAndScale(): void {
@@ -418,12 +476,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onCupGuess(cupId: number): void {
-    if (this.phase !== 'guess') return;
+    if (this.phase !== 'guess' || isPlatformPaused()) return;
     this.phase = 'reveal';
     this.setCupsInteractive(false);
 
     if (cupId === this.ballCupId) {
       this.score += 1;
+      this.bestStreak = Math.max(this.bestStreak, this.score);
+      sendPlayablesScore(this.score);
+      this.persistProgress();
       if (this.score === 5 || this.score === 10 || this.score === 20) this.showStreakToast(this.score);
       this.round += 1;
       this.updateHud();
@@ -490,6 +551,9 @@ export class GameScene extends Phaser.Scene {
   private showGameOver(): void {
     this.phase = 'gameover';
     this.phaseHint.setText('');
+    this.bestStreak = Math.max(this.bestStreak, this.score);
+    sendPlayablesScore(this.score);
+    void savePlayablesProgress(buildSaveFromGame(this.round, this.score, this.bestStreak));
     const { w, h, cx, cy } = this.layout;
     if (this.gameOverRoot) this.gameOverRoot.destroy(true);
     this.gameOverRoot = this.add.container(0, 0).setDepth(200);
@@ -512,6 +576,8 @@ export class GameScene extends Phaser.Scene {
     again.on('pointerup', () => {
       this.round = 1;
       this.score = 0;
+      sendPlayablesScore(0);
+      void savePlayablesProgress(buildSaveFromGame(1, 0, this.bestStreak));
       this.gameOverRoot?.destroy(true);
       this.gameOverRoot = undefined;
       void this.startRound();
@@ -579,7 +645,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private togglePause(): void {
-    if (this.phase === 'gameover') return;
+    if (this.phase === 'gameover' || isPlatformPaused()) return;
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
       this.tweens.pauseAll();
@@ -617,15 +683,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private toggleAudio(): void {
-    this.sound.mute = !this.sound.mute;
-    this.updateAudioIcon();
+    if (!canUserToggleAudio()) return;
+    toggleUserAudio();
   }
 
   private updateAudioIcon(): void {
-    if (this.sound.mute) {
-      this.audioBtn.setTexture(TEXTURE_KEYS.audioOn);
+    const muted = isEffectivelyMuted();
+    this.audioBtn.setTexture(muted ? TEXTURE_KEYS.audioOff : TEXTURE_KEYS.audioOn);
+
+    const platformAllowsToggle = canUserToggleAudio();
+    this.audioBtn.setAlpha(platformAllowsToggle ? 1 : 0.45);
+    if (platformAllowsToggle) {
+      this.audioBtn.setInteractive({ useHandCursor: true });
     } else {
-      this.audioBtn.setTexture(TEXTURE_KEYS.audioOff);
+      this.audioBtn.disableInteractive();
     }
   }
 }

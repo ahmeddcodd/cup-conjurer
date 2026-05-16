@@ -1,5 +1,12 @@
 import Phaser from 'phaser';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from './displayProfile';
+import { initPlayablesAudio } from './playables/playablesAudio';
+import {
+  bindFirstFrameReady,
+  bindPlayablesPauseResume,
+  bindPlayablesResize,
+  bindWebGLContextRecovery,
+} from './playables/playablesPlatform';
 import { GameScene } from './scenes/GameScene';
 import { StartScene } from './scenes/StartScene';
 
@@ -29,5 +36,10 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
     scene: [StartScene, GameScene],
   });
 
+  bindFirstFrameReady(game);
+  bindPlayablesPauseResume(game);
+  bindPlayablesResize(game, parent);
+  bindWebGLContextRecovery(game);
+  initPlayablesAudio(game);
   return game;
 }

@@ -1,7 +1,18 @@
 import Phaser from 'phaser';
 import { ASSET_URL, TEXTURE_KEYS } from '../assets';
+import { ensureBackgroundMusic, playSound } from '../playables/playablesAudio';
+import {
+  PLAYABLES_LAYOUT_EVENT,
+  type PlayablesGameplayHost,
+} from '../playables/playablesGameplay';
+import { notifyGameReady } from '../playables/playablesPlatform';
+import {
+  buildSaveFromGame,
+  getLoadedSave,
+  savePlayablesProgress,
+} from '../playables/playablesSave';
 
-export class StartScene extends Phaser.Scene {
+export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
   private bg!: Phaser.GameObjects.Image;
   private vignette!: Phaser.GameObjects.Graphics;
   private gemLeft!: Phaser.GameObjects.Image;
@@ -40,34 +51,20 @@ export class StartScene extends Phaser.Scene {
     this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
-    this.load.image(TEXTURE_KEYS.sparkle, ASSET_URL.sparkle);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
     
+    const startMusic = () => {
+      ensureBackgroundMusic(this);
+    };
+
     this.load.once('complete', () => {
       this.isBackgroundLoadingComplete = true;
-      console.log('Background loading complete');
+      startMusic();
     });
     this.load.start();
 
-    // Signal to YouTube that the game is interactive
-    if (typeof (window as any).gameReady === 'function') {
-      (window as any).gameReady();
-    }
-
-    const startMusic = () => {
-      if (this.cache.audio.exists(TEXTURE_KEYS.backgroundTone)) {
-        if (!this.sound.get(TEXTURE_KEYS.backgroundTone)) {
-          this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-        } else if (!this.sound.get(TEXTURE_KEYS.backgroundTone).isPlaying) {
-          this.sound.play(TEXTURE_KEYS.backgroundTone, { loop: true, volume: 0.45 });
-        }
-      }
-    };
-
     startMusic();
-    this.input.once('pointerdown', () => {
-      startMusic();
-    });
+    this.input.once('pointerdown', startMusic);
 
     // Initialize objects
     this.bg = this.add.image(0, 0, TEXTURE_KEYS.background).setOrigin(0.5);
@@ -137,13 +134,19 @@ export class StartScene extends Phaser.Scene {
       this.playButton.clearTint();
     });
 
+    const launchGame = () => {
+      const bestStreak = getLoadedSave()?.bestStreak ?? 0;
+      void savePlayablesProgress(buildSaveFromGame(1, 0, bestStreak));
+      this.scene.start('GameScene');
+    };
+
     const startGame = () => {
       // Check if background loading is already done or if there's nothing to load
       const isReady = this.isBackgroundLoadingComplete || (!this.load.isLoading() && this.load.progress === 1);
 
       if (isReady) {
-        this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
-        this.scene.start('GameScene');
+        playSound(this, TEXTURE_KEYS.playSound, { volume: 0.8 });
+        launchGame();
       } else {
         // Show loading progress on the screen
         this.instructionText.setText('Channelling spirits...\n0%');
@@ -161,8 +164,8 @@ export class StartScene extends Phaser.Scene {
         this.load.once('complete', () => {
           this.load.off('progress', onProgress);
           this.isBackgroundLoadingComplete = true;
-          this.sound.play(TEXTURE_KEYS.playSound, { volume: 0.8 });
-          this.scene.start('GameScene');
+          playSound(this, TEXTURE_KEYS.playSound, { volume: 0.8 });
+          launchGame();
         });
 
         // If the loader was idle for some reason, kickstart it
@@ -177,10 +180,32 @@ export class StartScene extends Phaser.Scene {
     // Initial layout
     this.refreshLayout();
 
+    notifyGameReady();
+
     // Listen for resize
     this.scale.on('resize', () => {
       this.refreshLayout();
     });
+
+    this.game.events.on(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
+  }
+
+  handlePlatformPause(): void {
+    this.input.enabled = false;
+    this.tweens.pauseAll();
+    this.time.paused = true;
+  }
+
+  handlePlatformResume(): void {
+    this.input.enabled = true;
+    this.game.input.enabled = true;
+    this.time.paused = false;
+    this.tweens.resumeAll();
+    this.refreshLayout();
+  }
+
+  shutdown(): void {
+    this.game.events.off(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
   }
 
   private refreshLayout(): void {

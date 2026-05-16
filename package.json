@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:playables": "npm run build && node scripts/check-playables-bundle.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

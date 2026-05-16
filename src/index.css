@@ -16,7 +16,7 @@ body,
   height: 100dvh;
   /* Cap the width to a 9:16 ratio relative to the height for desktop/tablets */
   max-width: calc(100dvh * 9 / 16);
-  background: #000;
+  background: #12081c;
   position: relative;
 }
 
