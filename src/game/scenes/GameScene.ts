@@ -65,6 +65,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   /** `cupAtSlot[slotIndex]` = cup identity sitting in that slot. */
   private cupAtSlot: number[] = [0, 1, 2];
   private cupSprites: Phaser.GameObjects.Image[] = [];
+  private idleCupTweens: Phaser.Tweens.Tween[] = [];
   private gem!: Phaser.GameObjects.Image;
 
   private round = 1;
@@ -362,6 +363,31 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     }
   }
 
+  /** Gentle floating bob on the closed goblets so the "memorize" wait feels alive. */
+  private startIdleCupAnimation(): void {
+    this.stopIdleCupAnimation();
+    const lift = this.layout.cupTargetDisplayHeight * 0.05;
+    this.cupSprites.forEach((cup, i) => {
+      const tween = this.tweens.add({
+        targets: cup,
+        y: this.layout.cupFootY - lift,
+        duration: 720,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1,
+        delay: i * 130,
+      });
+      this.idleCupTweens.push(tween);
+    });
+  }
+
+  private stopIdleCupAnimation(): void {
+    for (const tween of this.idleCupTweens) tween.stop();
+    this.idleCupTweens = [];
+    // Restore exact resting positions so the reveal/shuffle start from a clean state.
+    this.syncCupPositionsFromSlots();
+  }
+
   private setCupsInteractive(active: boolean): void {
     for (const c of this.cupSprites) {
       c.removeAllListeners('pointerup');
@@ -426,10 +452,20 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.hideGem();
 
     this.numCups = getNumCupsForRound(this.round);
-    this.ballCupId = Phaser.Math.Between(0, this.numCups - 1);
+    // Keep the gem under the same goblet across rounds; only pick a fresh goblet
+    // at the very start of a game. Clamp in case the cup count shrank (4 -> 3).
+    this.ballCupId =
+      this.round === 1
+        ? Phaser.Math.Between(0, this.numCups - 1)
+        : Math.min(this.ballCupId, this.numCups - 1);
     this.registry.set(REGISTRY_BALL_CUP_INDEX, this.ballCupId);
 
-    this.cupAtSlot = Array.from({ length: this.numCups }, (_, i) => i);
+    // Preserve the previous round's arrangement so the gem starts the next round
+    // in the same goblet (and screen position) it was just revealed in, then
+    // shuffles from there. Reset only at game start or if the cup count changed.
+    if (this.round === 1 || this.cupAtSlot.length !== this.numCups) {
+      this.cupAtSlot = Array.from({ length: this.numCups }, (_, i) => i);
+    }
     this.computeSlotsAndScale();
     this.buildCups();
     this.updateHud();
@@ -442,7 +478,9 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
         : 'The gem is revealed under one goblet. Memorize it before the shuffle.',
     );
 
+    this.startIdleCupAnimation();
     await sleep(this, REVEAL_INSTRUCTION_READ_MS);
+    this.stopIdleCupAnimation();
 
     for (let id = 0; id < this.numCups; id++) {
       const cup = this.cupSprites[id];
@@ -486,6 +524,14 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
       sendPlayablesScore(this.score);
       this.persistProgress();
       if (this.score === 5 || this.score === 10 || this.score === 20) this.showStreakToast(this.score);
+
+      // Reveal the gem under the chosen goblet to confirm the correct pick.
+      const correctCup = this.cupSprites[this.ballCupId];
+      correctCup.setTexture(TEXTURE_KEYS.openGoblet);
+      this.applyUniformCupDisplaySize(correctCup);
+      correctCup.setDepth(36);
+      this.layoutGemForOpenCup(this.ballCupId);
+
       this.round += 1;
       this.updateHud();
       this.showCorrectGuessMessage(() => { void this.startRound(); });
