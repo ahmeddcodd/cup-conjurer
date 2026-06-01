@@ -11,6 +11,7 @@ import {
   ensureBackgroundMusic,
   isEffectivelyMuted,
   onPlayablesAudioUiChange,
+  playSound,
   toggleUserAudio,
 } from '../playables/playablesAudio';
 import { sendPlayablesScore } from '../playables/playablesEngagement';
@@ -100,6 +101,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
+    this.load.audio(TEXTURE_KEYS.correctSound, ASSET_URL.correctSound);
   }
 
   create(): void {
@@ -179,6 +181,10 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.input.enabled = false;
     this.tweens.pauseAll();
     this.time.paused = true;
+    // Show the same paused screen the in-game pause button produces.
+    if (this.phase !== 'gameover' && !this.pauseOverlay) {
+      this.showPauseOverlay();
+    }
   }
 
   handlePlatformResume(): void {
@@ -188,10 +194,16 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.tweens.resumeAll();
 
     if (this.isPaused) {
+      // Player also paused manually — stay paused, keep the overlay.
       this.time.paused = true;
       this.tweens.pauseAll();
-    } else if (this.phase === 'guess') {
-      this.setCupsInteractive(true);
+    } else {
+      // Clear the platform-pause overlay and fully resume.
+      this.pauseOverlay?.destroy();
+      this.pauseOverlay = undefined;
+      if (this.phase === 'guess') {
+        this.setCupsInteractive(true);
+      }
     }
 
     this.refreshLayout();
@@ -521,6 +533,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     if (cupId === this.ballCupId) {
       this.score += 1;
       this.bestStreak = Math.max(this.bestStreak, this.score);
+      playSound(this, TEXTURE_KEYS.correctSound, { volume: 0.8 });
       sendPlayablesScore(this.score);
       this.persistProgress();
       if (this.score === 5 || this.score === 10 || this.score === 20) this.showStreakToast(this.score);
