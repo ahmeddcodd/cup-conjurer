@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ASSET_URL, TEXTURE_KEYS } from '../assets';
-import { ensureBackgroundMusic, playSound } from '../playables/playablesAudio';
+import { ensureBackgroundMusic, playSound, unlockAudioContextOnGesture } from '../playables/playablesAudio';
 import {
   PLAYABLES_LAYOUT_EVENT,
   type PlayablesGameplayHost,
@@ -64,7 +64,10 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.load.start();
 
     startMusic();
-    this.input.once('pointerdown', startMusic);
+    this.input.once('pointerdown', () => {
+      unlockAudioContextOnGesture(this.game);
+      startMusic();
+    });
 
     // Initialize objects
     this.bg = this.add.image(0, 0, TEXTURE_KEYS.background).setOrigin(0.5);
@@ -141,6 +144,7 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     };
 
     const startGame = () => {
+      unlockAudioContextOnGesture(this.game);
       // Check if background loading is already done or if there's nothing to load
       const isReady = this.isBackgroundLoadingComplete || (!this.load.isLoading() && this.load.progress === 1);
 

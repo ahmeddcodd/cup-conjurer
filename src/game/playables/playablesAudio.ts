@@ -120,6 +120,20 @@ async function unlockGameAudio(game: Phaser.Game): Promise<void> {
   }
 }
 
+/**
+ * Call this synchronously inside a user-gesture handler (pointerdown, pointerup, etc.)
+ * to lift the browser's autoplay suspension before entering any async chain.
+ * Safe no-op when the AudioContext is already running (e.g. inside YouTube Playables).
+ */
+export function unlockAudioContextOnGesture(game: Phaser.Game): void {
+  const mgr = game.sound as Phaser.Sound.WebAudioSoundManager & {
+    context?: AudioContext;
+  };
+  if (mgr.context?.state === 'suspended') {
+    void mgr.context.resume();
+  }
+}
+
 /** Stop every instance of the background loop (guards against stacked plays). */
 function stopAllBackgroundMusic(game: Phaser.Game): void {
   const mgr = game.sound as Phaser.Sound.BaseSoundManager & {
@@ -160,9 +174,29 @@ function isBackgroundMusicPlaying(game: Phaser.Game): boolean {
   return mgr.get(MUSIC_KEY)?.isPlaying ?? false;
 }
 
+/**
+ * WebAudioSound.play() schedules a buffer source even while the context is
+ * suspended/locked, which creates a phantom "isPlaying" instance that produces
+ * no sound and then blocks the real start. Only play once the context is truly
+ * running. On YouTube Playables the context is already running, so this is a
+ * no-op gate; the deferral path only matters for browser autoplay locks (localhost).
+ */
+function isAudioContextRunning(game: Phaser.Game): boolean {
+  const mgr = game.sound as Phaser.Sound.WebAudioSoundManager & {
+    context?: AudioContext;
+    locked?: boolean;
+  };
+  if (mgr.locked) return false;
+  // No context (e.g. NoAudioSoundManager) — nothing to gate on.
+  if (!mgr.context) return true;
+  return mgr.context.state === 'running';
+}
+
 async function startBackgroundMusicOnActiveScene(game: Phaser.Game): Promise<void> {
   const scene = getActiveScene(game);
   if (!scene?.cache.audio.exists(MUSIC_KEY)) return;
+
+  if (!isAudioContextRunning(game)) return;
 
   if (isBackgroundMusicPlaying(game)) return;
 
@@ -284,7 +318,27 @@ export function playSound(
   });
 }
 
+let unlockedMusicListenerBound = false;
+
+/**
+ * When the browser blocks autoplay (localhost / non-YouTube), Phaser starts with
+ * a locked sound manager and emits UNLOCKED on the first user gesture (after the
+ * AudioContext is confirmed running). Defer the real music start to that moment.
+ * On YouTube Playables the manager is not locked, so this binds nothing.
+ */
+function bindUnlockedMusicStart(game: Phaser.Game): void {
+  const manager = game.sound as Phaser.Sound.BaseSoundManager & { locked?: boolean };
+  if (!manager.locked || unlockedMusicListenerBound) return;
+
+  unlockedMusicListenerBound = true;
+  manager.once(Phaser.Sound.Events.UNLOCKED, () => {
+    unlockedMusicListenerBound = false;
+    queueBackgroundMusicSync();
+  });
+}
+
 export function ensureBackgroundMusic(scene: Phaser.Scene): void {
   if (!scene.game) return;
+  bindUnlockedMusicStart(scene.game);
   queueBackgroundMusicSync();
 }

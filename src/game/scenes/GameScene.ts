@@ -38,7 +38,7 @@ function sleep(scene: Phaser.Scene, ms: number): Promise<void> {
 }
 
 /** Time to read the reveal instruction before the gem is shown. */
-const REVEAL_INSTRUCTION_READ_MS = 3500;
+const REVEAL_INSTRUCTION_READ_MS = 2000;
 
 export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   private layout = {
@@ -521,7 +521,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
       y: cy * 0.46,
       duration: 180,
       ease: 'Quad.Out',
-      hold: 520,
+      hold: 360,
       yoyo: true,
       onComplete: () => { t.destroy(); onDone(); },
     });
