@@ -1,4 +1,4 @@
-import { hasYtGame } from './playablesPlatform';
+import { isInPlayablesEnv } from './playablesPlatform';
 
 const LOCAL_SAVE_KEY = 'cup_conjurer_save';
 const MAX_SAVE_BYTES = 3 * 1024 * 1024;
@@ -39,7 +39,9 @@ function parseSave(raw: string): PlayablesSaveData | null {
 
 /** RS: loadData on boot (Playables cloud or local fallback for dev). */
 export async function initPlayablesSave(): Promise<void> {
-  if (hasYtGame() && ytgame.game?.loadData) {
+  // Route on IN_PLAYABLES_ENV, not SDK presence: the SDK script also loads in a
+  // plain browser, where loadData/saveData silently no-op — use localStorage there.
+  if (isInPlayablesEnv() && ytgame.game?.loadData) {
     try {
       const raw = await ytgame.game.loadData();
       if (raw) {
@@ -78,7 +80,7 @@ export async function savePlayablesProgress(data: PlayablesSaveData): Promise<vo
     return;
   }
 
-  if (hasYtGame() && ytgame.game?.saveData) {
+  if (isInPlayablesEnv() && ytgame.game?.saveData) {
     try {
       await ytgame.game.saveData(serialized);
     } catch {

@@ -19,7 +19,7 @@ export function isPlatformPaused(): boolean {
  * to a running, focused state on every resume. All calls are safe no-ops when the
  * loop is already awake/focused.
  */
-function wakePhaserLoop(game: Phaser.Game): void {
+export function wakePhaserLoop(game: Phaser.Game): void {
   const loop = game.loop as Phaser.Core.TimeStep | undefined;
   if (!loop) return;
   if (typeof loop.wake === 'function') loop.wake();

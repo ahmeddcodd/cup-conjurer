@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import { refreshPlayablesDisplay } from './playablesGameplay';
-import { beginPlatformPause, completePlatformResume } from './playablesHostPause';
+import {
+  beginPlatformPause,
+  completePlatformResume,
+  isPlatformPaused,
+  wakePhaserLoop,
+} from './playablesHostPause';
 
 export { completePlatformResume, isPlatformPaused } from './playablesHostPause';
 
@@ -84,7 +89,9 @@ export function bindPlayablesResize(game: Phaser.Game, parent: HTMLElement): voi
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       requestAnimationFrame(onLayout);
-      requestAnimationFrame(() => completePlatformResume(game));
+      // Wake the render loop (Phaser's blur can leave it frozen), but never end a
+      // host pause here — only ytgame onResume / the unmute workaround may do that.
+      requestAnimationFrame(() => wakePhaserLoop(game));
     }
   });
 }
@@ -106,7 +113,12 @@ export function bindWebGLContextRecovery(game: Phaser.Game): void {
     () => {
       requestAnimationFrame(() => {
         refreshPlayablesDisplay(game);
-        completePlatformResume(game);
+        if (isPlatformPaused()) {
+          // Keep the host pause; just make sure the loop renders again.
+          wakePhaserLoop(game);
+        } else {
+          completePlatformResume(game);
+        }
       });
     },
     false,

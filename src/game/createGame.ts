@@ -41,5 +41,11 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
   bindPlayablesResize(game, parent);
   bindWebGLContextRecovery(game);
   initPlayablesAudio(game);
+
+  if (import.meta.env.DEV) {
+    // Dev-only debug handle (eliminated from production builds).
+    (window as unknown as { __game?: Phaser.Game }).__game = game;
+  }
+
   return game;
 }

@@ -5,12 +5,8 @@ import {
   PLAYABLES_LAYOUT_EVENT,
   type PlayablesGameplayHost,
 } from '../playables/playablesGameplay';
-import { notifyGameReady } from '../playables/playablesPlatform';
-import {
-  buildSaveFromGame,
-  getLoadedSave,
-  savePlayablesProgress,
-} from '../playables/playablesSave';
+import { isPlatformPaused, notifyGameReady } from '../playables/playablesPlatform';
+import { getLoadedSave } from '../playables/playablesSave';
 
 export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
   private bg!: Phaser.GameObjects.Image;
@@ -20,7 +16,9 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
   private swipe!: Phaser.GameObjects.Image;
   private logo!: Phaser.GameObjects.Image;
   private instructionText!: Phaser.GameObjects.Text;
+  private bestStreakText!: Phaser.GameObjects.Text;
   private playButton!: Phaser.GameObjects.Image;
+  private playButtonPulse?: Phaser.Tweens.Tween;
 
   constructor() {
     super({ key: 'StartScene' });
@@ -124,6 +122,20 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
       ease: 'Sine.easeInOut',
     });
 
+    const bestStreak = getLoadedSave()?.bestStreak ?? 0;
+    this.bestStreakText = this.add
+      .text(0, 0, bestStreak > 0 ? `Best streak: ${bestStreak}` : '', {
+        fontFamily: '"Cinzel", Georgia, serif',
+        color: '#ffe29a',
+        align: 'center',
+        stroke: '#1a0510',
+        strokeThickness: 4,
+        padding: { x: 8, y: 6 },
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, stroke: true, fill: true }
+      })
+      .setOrigin(0.5)
+      .setDepth(20);
+
     this.playButton = this.add
       .image(0, 0, TEXTURE_KEYS.playButton)
       .setOrigin(0.5)
@@ -138,8 +150,7 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     });
 
     const launchGame = () => {
-      const bestStreak = getLoadedSave()?.bestStreak ?? 0;
-      void savePlayablesProgress(buildSaveFromGame(1, 0, bestStreak));
+      // RS_06: never reset the save here — GameScene resumes the stored run.
       this.scene.start('GameScene');
     };
 
@@ -187,11 +198,12 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     notifyGameReady();
 
     // Listen for resize
-    this.scale.on('resize', () => {
-      this.refreshLayout();
-    });
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshLayout, this);
 
     this.game.events.on(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
+
+    // Phaser does not auto-call shutdown(); bind it so listeners detach on scene.start().
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
 
   handlePlatformPause(): void {
@@ -209,6 +221,7 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
   }
 
   shutdown(): void {
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.refreshLayout, this);
     this.game.events.off(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
   }
 
@@ -244,17 +257,20 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
       fontSize: `${Math.round(34 * (w / 720))}px`,
     });
 
+    this.bestStreakText.setPosition(cx, h * 0.545);
+    this.bestStreakText.setStyle({
+      fontSize: `${Math.round(26 * (w / 720))}px`,
+    });
+
     this.playButton.setPosition(cx, h * 0.7);
     const playScale = Math.min((w * 0.92) / this.playButton.width, (h * 0.38) / this.playButton.height);
     this.playButton.setScale(playScale);
 
-    // If there were any active tweens that modify scale, they might need adjustment,
-    // but here the tweens are relative or alpha-based, so they should be fine.
-    // The play button pulse tween targets 'scale', which might conflict with setScale here.
-    // To be safe, we can restart the pulse tween or use a separate container.
-    // For now, let's just update the base scale and let the tween continue.
-    this.tweens.killTweensOf(this.playButton);
-    this.tweens.add({
+    // The pulse tween targets 'scale', which conflicts with setScale above, so
+    // rebuild it from the new base scale. Kill only the pulse (not every tween on
+    // the button) and keep it paused while a host pause is active.
+    this.playButtonPulse?.destroy();
+    this.playButtonPulse = this.tweens.add({
       targets: this.playButton,
       scale: playScale * 1.06,
       duration: 900,
@@ -262,5 +278,8 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+    if (isPlatformPaused()) {
+      this.playButtonPulse.pause();
+    }
   }
 }

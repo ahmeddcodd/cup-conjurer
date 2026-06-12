@@ -72,6 +72,8 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   private round = 1;
   private score = 0;
   private bestStreak = 0;
+  /** False until the gem is first placed this run (new game or resumed save). */
+  private gemPlaced = false;
   private phase: Phase = 'reveal';
 
   private hudRound!: Phaser.GameObjects.Text;
@@ -161,18 +163,20 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, stroke: true, fill: true }
       }).setOrigin(0.5, 0).setDepth(uiDepth);
 
+    // RS_06: resume the saved run — reloading must not lose round/streak progress.
     const save = getLoadedSave();
     this.bestStreak = save?.bestStreak ?? 0;
-    this.round = 1;
-    this.score = 0;
+    this.round = save?.round ?? 1;
+    this.score = save?.score ?? 0;
 
     this.refreshLayout();
 
-    this.scale.on('resize', () => {
-      this.refreshLayout();
-    });
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshLayout, this);
 
     this.game.events.on(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
+
+    // Phaser does not auto-call shutdown(); bind it so listeners detach on scene stop.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
     void this.startRound();
   }
@@ -210,6 +214,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   }
 
   shutdown(): void {
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.refreshLayout, this);
     this.game.events.off(PLAYABLES_LAYOUT_EVENT, this.refreshLayout, this);
     this.unsubscribeAudio?.();
     this.unsubscribeAudio = undefined;
@@ -270,7 +275,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
       }
     }
 
-    if (this.gameOverRoot) this.showGameOver();
+    if (this.gameOverRoot) this.renderGameOverUi();
     if (this.pauseOverlay) this.showPauseOverlay();
   }
 
@@ -465,17 +470,19 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
 
     this.numCups = getNumCupsForRound(this.round);
     // Keep the gem under the same goblet across rounds; only pick a fresh goblet
-    // at the very start of a game. Clamp in case the cup count shrank (4 -> 3).
-    this.ballCupId =
-      this.round === 1
-        ? Phaser.Math.Between(0, this.numCups - 1)
-        : Math.min(this.ballCupId, this.numCups - 1);
+    // at the start of a run (new game or resumed save, which can begin at any
+    // round). Clamp in case the cup count shrank (4 -> 3).
+    const freshPlacement = !this.gemPlaced;
+    this.ballCupId = freshPlacement
+      ? Phaser.Math.Between(0, this.numCups - 1)
+      : Math.min(this.ballCupId, this.numCups - 1);
+    this.gemPlaced = true;
     this.registry.set(REGISTRY_BALL_CUP_INDEX, this.ballCupId);
 
     // Preserve the previous round's arrangement so the gem starts the next round
     // in the same goblet (and screen position) it was just revealed in, then
-    // shuffles from there. Reset only at game start or if the cup count changed.
-    if (this.round === 1 || this.cupAtSlot.length !== this.numCups) {
+    // shuffles from there. Reset only at run start or if the cup count changed.
+    if (freshPlacement || this.cupAtSlot.length !== this.numCups) {
       this.cupAtSlot = Array.from({ length: this.numCups }, (_, i) => i);
     }
     this.computeSlotsAndScale();
@@ -526,7 +533,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   }
 
   private onCupGuess(cupId: number): void {
-    if (this.phase !== 'guess' || isPlatformPaused()) return;
+    if (this.phase !== 'guess' || this.isPaused || isPlatformPaused()) return;
     this.phase = 'reveal';
     this.setCupsInteractive(false);
 
@@ -535,7 +542,6 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
       this.bestStreak = Math.max(this.bestStreak, this.score);
       playSound(this, TEXTURE_KEYS.correctSound, { volume: 0.8 });
       sendPlayablesScore(this.score);
-      this.persistProgress();
       if (this.score === 5 || this.score === 10 || this.score === 20) this.showStreakToast(this.score);
 
       // Reveal the gem under the chosen goblet to confirm the correct pick.
@@ -546,6 +552,8 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
       this.layoutGemForOpenCup(this.ballCupId);
 
       this.round += 1;
+      // Persist after advancing so a reload resumes at the next round with this streak.
+      this.persistProgress();
       this.updateHud();
       this.showCorrectGuessMessage(() => { void this.startRound(); });
     } else {
@@ -607,18 +615,25 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     });
   }
 
+  /** One-shot game-over entry: report/persist the run, then build the overlay. */
   private showGameOver(): void {
     this.phase = 'gameover';
     this.phaseHint.setText('');
     this.bestStreak = Math.max(this.bestStreak, this.score);
     sendPlayablesScore(this.score);
-    void savePlayablesProgress(buildSaveFromGame(this.round, this.score, this.bestStreak));
+    // The run is over — persist a fresh run so a reload doesn't resurrect it.
+    void savePlayablesProgress(buildSaveFromGame(1, 0, this.bestStreak));
+    this.renderGameOverUi();
+  }
+
+  /** Pure UI build/position — safe to re-run on resize without side effects. */
+  private renderGameOverUi(): void {
     const { w, h, cx, cy } = this.layout;
     if (this.gameOverRoot) this.gameOverRoot.destroy(true);
     this.gameOverRoot = this.add.container(0, 0).setDepth(200);
     const dim = this.add.rectangle(cx, cy, w, h, 0x12081c, 0.82).setInteractive();
     this.gameOverRoot.add(dim);
-    const panel = this.add.text(cx, cy - 40, `The gem slipped away.\n\nFinal streak: ${this.score}`, {
+    const panel = this.add.text(cx, cy - 40, `The gem slipped away.\n\nFinal streak: ${this.score}\nBest streak: ${this.bestStreak}`, {
         fontFamily: '"Cinzel", Georgia, serif',
         fontSize: `${Math.round(28 * (w / 720))}px`,
         color: '#f4e4bc',
@@ -635,6 +650,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     again.on('pointerup', () => {
       this.round = 1;
       this.score = 0;
+      this.gemPlaced = false;
       sendPlayablesScore(0);
       void savePlayablesProgress(buildSaveFromGame(1, 0, this.bestStreak));
       this.gameOverRoot?.destroy(true);

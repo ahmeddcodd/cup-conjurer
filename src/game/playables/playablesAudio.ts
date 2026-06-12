@@ -6,6 +6,15 @@ function hasYtGame(): boolean {
   return typeof ytgame !== 'undefined';
 }
 
+/**
+ * Local copy (importing playablesPlatform here would create a require cycle).
+ * The SDK script also loads on plain hosted pages (e.g. Vercel), where it
+ * reports audio as disabled — only trust host audio state inside the env.
+ */
+function isInPlayablesEnv(): boolean {
+  return hasYtGame() && ytgame.IN_PLAYABLES_ENV;
+}
+
 let phaserGame: Phaser.Game | null = null;
 /** YouTube host mute (RS_03). */
 let platformAudioEnabled = true;
@@ -31,7 +40,7 @@ const BACKGROUND_MUSIC_CONFIG: Phaser.Types.Sound.SoundConfig = {
 const MUSIC_KEY = TEXTURE_KEYS.backgroundTone;
 
 function readPlatformAudioEnabled(): boolean {
-  if (hasYtGame() && ytgame.system?.isAudioEnabled) {
+  if (isInPlayablesEnv() && ytgame.system?.isAudioEnabled) {
     return ytgame.system.isAudioEnabled();
   }
   return true;
@@ -268,7 +277,7 @@ export function initPlayablesAudio(game: Phaser.Game): void {
   userAudioEnabled = true;
   applyPlayablesAudio();
 
-  if (hasYtGame() && ytgame.system?.onAudioEnabledChange) {
+  if (isInPlayablesEnv() && ytgame.system?.onAudioEnabledChange) {
     ytgame.system.onAudioEnabledChange((enabled) => {
       platformAudioEnabled = enabled;
       // Suite "Resume" often unmutes without onResume — restore gameplay too.
