@@ -248,26 +248,26 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     const logoScale = Math.min((w * 1.1) / this.logo.width, (h * 0.4) / this.logo.height);
     this.logo.setScale(logoScale);
 
-    this.instructionText.setPosition(cx, h * 0.45);
+    this.instructionText.setPosition(cx, h * 0.43);
     this.instructionText.setStyle({
       fontSize: `${Math.round(34 * (w / 720))}px`,
     });
 
-    this.playButton.setPosition(cx, h * 0.7);
+    this.playButton.setPosition(cx, h * 0.72);
     const playScale = Math.min((w * 0.92) / this.playButton.width, (h * 0.38) / this.playButton.height);
     this.playButton.setScale(playScale);
 
-    // Place the best-streak text just below the instruction text with a small gap.
-    // (Anchored to the instruction text, not the play button, whose 1024px sprite
-    // has large transparent padding that makes its bounding box unreliable.)
+    // Place the best-streak text in the gap between the instruction text and the
+    // play button's *visible* top. The shield fills ~84% of its (square) sprite
+    // vertically, so the visible top is ~0.42 * displayHeight above the center —
+    // use that instead of the full half-height bounding box (lots of transparent
+    // padding) to keep clear space and avoid overlapping the shield's top point.
     this.bestStreakText.setStyle({
       fontSize: `${Math.round(26 * (w / 720))}px`,
     });
     const instructionBottom = this.instructionText.y + this.instructionText.displayHeight / 2;
-    this.bestStreakText.setPosition(
-      cx,
-      instructionBottom + this.bestStreakText.displayHeight / 2 + h * 0.03,
-    );
+    const playButtonVisibleTop = this.playButton.y - this.playButton.displayHeight * 0.42;
+    this.bestStreakText.setPosition(cx, (instructionBottom + playButtonVisibleTop) / 2);
 
     // The pulse tween targets 'scale', which conflicts with setScale above, so
     // rebuild it from the new base scale. Kill only the pulse (not every tween on
