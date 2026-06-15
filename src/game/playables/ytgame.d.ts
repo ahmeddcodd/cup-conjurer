@@ -18,6 +18,5 @@ interface YtGameNamespace {
     onAudioEnabledChange(callback: (isAudioEnabled: boolean) => void): () => void;
     onPause(callback: () => void): () => void;
     onResume(callback: () => void): () => void;
-    getLanguage(): Promise<string>;
   };
 }

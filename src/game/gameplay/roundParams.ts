@@ -9,10 +9,10 @@ export function getSwapDurationMsForRound(round: number): number {
   return Math.max(130, 580 - speedTier * 85);
 }
 
-/** After round 10, sometimes use four goblets (Instant Games–friendly odds). */
+/** From round 5 onward, use four goblets 50% of the time (otherwise three). */
 export function getNumCupsForRound(round: number): number {
-  if (round <= 10) return 3;
-  return Math.random() < 0.36 ? 4 : 3;
+  if (round < 5) return 3;
+  return Math.random() < 0.5 ? 4 : 3;
 }
 
 /** Chance to insert a fake double-swap (out-and-back) before a real swap. */
