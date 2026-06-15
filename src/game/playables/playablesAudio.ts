@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TEXTURE_KEYS } from '../assets';
-import { completePlatformResume } from './playablesHostPause';
+import { isPlatformPaused, wakePhaserLoop } from './playablesHostPause';
 
 function hasYtGame(): boolean {
   return typeof ytgame !== 'undefined';
@@ -280,9 +280,13 @@ export function initPlayablesAudio(game: Phaser.Game): void {
   if (isInPlayablesEnv() && ytgame.system?.onAudioEnabledChange) {
     ytgame.system.onAudioEnabledChange((enabled) => {
       platformAudioEnabled = enabled;
-      // Suite "Resume" often unmutes without onResume — restore gameplay too.
-      if (enabled) {
-        completePlatformResume(game);
+      // Audio-only: per the Playables spec, gameplay resumes ONLY on onResume, so
+      // unmuting must never clear a host pause. We still wake the render loop (a
+      // suite "Resume" can unmute without restoring iframe focus) but leave the
+      // pause state untouched — applyEffectivePause keeps the game paused if the
+      // host pause is still active.
+      if (enabled && !isPlatformPaused()) {
+        wakePhaserLoop(game);
       }
       syncPlayablesAudioAfterPlatformChange();
     });

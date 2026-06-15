@@ -46,7 +46,6 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
     this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
     this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
-    this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
@@ -206,18 +205,15 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
 
-  handlePlatformPause(): void {
-    this.input.enabled = false;
-    this.tweens.pauseAll();
-    this.time.paused = true;
+  // --- PlayablesGameplayHost: host-driven pause/resume only. The reconciler
+  // freezes input/time/tweens; the scene just pauses its decorative pulse. ---
+
+  applyPausedUi(): void {
+    this.playButtonPulse?.pause();
   }
 
-  handlePlatformResume(): void {
-    this.input.enabled = true;
-    this.game.input.enabled = true;
-    this.time.paused = false;
-    this.tweens.resumeAll();
-    this.refreshLayout();
+  applyRunningUi(): void {
+    this.playButtonPulse?.resume();
   }
 
   shutdown(): void {

@@ -10,7 +10,6 @@ export const ASSET_URL = {
   backgroundTone: '/assets/background_tone.mp3',
   playSound: '/assets/play_soundeffect.mp3',
   correctSound: '/assets/magical-sound.mp3',
-  pauseButton: '/assets/game_pause_spirit.png',
   audioOn: '/assets/audio_on_spirit.png',
   audioOff: '/assets/audio_off_spirit.png',
 } as const;
@@ -27,7 +26,6 @@ export const TEXTURE_KEYS = {
   backgroundTone: 'background_tone',
   playSound: 'play_sound',
   correctSound: 'correct_sound',
-  pauseButton: 'pause_button',
   audioOn: 'audio_on',
   audioOff: 'audio_off',
 } as const;

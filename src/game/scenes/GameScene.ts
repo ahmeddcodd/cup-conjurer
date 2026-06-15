@@ -17,6 +17,7 @@ import {
 import { sendPlayablesScore } from '../playables/playablesEngagement';
 import type { PlayablesGameplayHost } from '../playables/playablesGameplay';
 import { PLAYABLES_LAYOUT_EVENT } from '../playables/playablesGameplay';
+import { applyEffectivePause } from '../playables/playablesHostPause';
 import { isPlatformPaused } from '../playables/playablesPlatform';
 import {
   buildSaveFromGame,
@@ -81,9 +82,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   private phaseHint!: Phaser.GameObjects.Text;
   private gameOverRoot?: Phaser.GameObjects.Container;
   private pauseOverlay?: Phaser.GameObjects.Container;
-  private isPaused = false;
   private audioBtn!: Phaser.GameObjects.Image;
-  private pauseBtn!: Phaser.GameObjects.Image;
   private unsubscribeAudio?: () => void;
 
   constructor() {
@@ -99,7 +98,6 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
     this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
     this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
-    this.load.image(TEXTURE_KEYS.pauseButton, ASSET_URL.pauseButton);
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
@@ -140,12 +138,6 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, stroke: true, fill: true }
       }).setOrigin(1, 0).setDepth(uiDepth);
 
-    this.pauseBtn = this.add.image(0, 0, TEXTURE_KEYS.pauseButton)
-      .setOrigin(1, 0)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(uiDepth);
-    this.pauseBtn.on('pointerup', () => this.togglePause());
-
     this.audioBtn = this.add.image(0, 0, TEXTURE_KEYS.audioOn)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true })
@@ -181,36 +173,27 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     void this.startRound();
   }
 
-  handlePlatformPause(): void {
-    this.input.enabled = false;
-    this.tweens.pauseAll();
-    this.time.paused = true;
-    // Show the same paused screen the in-game pause button produces.
-    if (this.phase !== 'gameover' && !this.pauseOverlay) {
-      this.showPauseOverlay();
-    }
+  // --- PlayablesGameplayHost: the reconciler owns input/time/tweens; the scene
+  // owns only its own pause overlay and cup interactivity. ---
+
+  // --- PlayablesGameplayHost: pause/resume is driven solely by the YouTube host.
+  // The scene only freezes/thaws its own gameplay input; the reconciler owns the
+  // Phaser loop/time/tween state. There is no in-game pause UI. ---
+
+  /** Host pause: show a non-interactive PAUSED overlay so the player knows the
+   *  game is paused (not frozen). Resume is driven only by the YouTube host. */
+  applyPausedUi(): void {
+    if (this.phase === 'gameover') return;
+    this.showPauseOverlay();
   }
 
-  handlePlatformResume(): void {
-    this.input.enabled = true;
-    this.game.input.enabled = true;
-    this.time.paused = false;
-    this.tweens.resumeAll();
-
-    if (this.isPaused) {
-      // Player also paused manually — stay paused, keep the overlay.
-      this.time.paused = true;
-      this.tweens.pauseAll();
-    } else {
-      // Clear the platform-pause overlay and fully resume.
-      this.pauseOverlay?.destroy();
-      this.pauseOverlay = undefined;
-      if (this.phase === 'guess') {
-        this.setCupsInteractive(true);
-      }
-    }
-
-    this.refreshLayout();
+  /** Host resume: just clear the overlay. Cup interactivity is owned by the game
+   *  flow (set in the guess phase) and is NOT removed on pause, so re-registering
+   *  it here would churn Phaser's deferred input list on the freshly-woken frame
+   *  and leave the goblets un-clickable until the next pause/resume. */
+  applyRunningUi(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = undefined;
   }
 
   shutdown(): void {
@@ -253,9 +236,6 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.hudScore.setPosition(w - 20, 18);
     this.hudScore.setStyle({ fontSize: `${Math.round(28 * (w / 720))}px` });
 
-    this.pauseBtn.setPosition(w, 50);
-    this.pauseBtn.setScale(0.17 * (w / 720));
-
     this.audioBtn.setPosition(20, 50);
     this.audioBtn.setScale(0.17 * (w / 720));
 
@@ -277,6 +257,11 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
 
     if (this.gameOverRoot) this.renderGameOverUi();
     if (this.pauseOverlay) this.showPauseOverlay();
+
+    // A layout pass can fire from a resize that lands mid host-pause/resume.
+    // Re-assert the correct paused/running state so layout never re-enables a
+    // paused game nor leaves a resumed one frozen.
+    applyEffectivePause(this.game);
   }
 
   private updateHud(): void {
@@ -533,7 +518,7 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   }
 
   private onCupGuess(cupId: number): void {
-    if (this.phase !== 'guess' || this.isPaused || isPlatformPaused()) return;
+    if (this.phase !== 'guess' || isPlatformPaused()) return;
     this.phase = 'reveal';
     this.setCupsInteractive(false);
 
@@ -719,42 +704,21 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     }
   }
 
-  private togglePause(): void {
-    if (this.phase === 'gameover' || isPlatformPaused()) return;
-    this.isPaused = !this.isPaused;
-    if (this.isPaused) {
-      this.tweens.pauseAll();
-      this.time.paused = true;
-      this.showPauseOverlay();
-    } else {
-      this.tweens.resumeAll();
-      this.time.paused = false;
-      this.pauseOverlay?.destroy();
-      this.pauseOverlay = undefined;
-    }
-  }
-
+  /** Non-interactive PAUSED overlay (no Resume button — the host owns resume). */
   private showPauseOverlay(): void {
     const { w, h, cx, cy } = this.layout;
     if (this.pauseOverlay) this.pauseOverlay.destroy();
     this.pauseOverlay = this.add.container(0, 0).setDepth(300);
-    const dim = this.add.rectangle(cx, cy, w, h, 0x000000, 0.6).setInteractive();
+    const dim = this.add.rectangle(cx, cy, w, h, 0x000000, 0.6);
     this.pauseOverlay.add(dim);
-    const title = this.add.text(cx, cy - 40, 'PAUSED', {
+    const title = this.add.text(cx, cy, 'PAUSED', {
       fontFamily: '"Cinzel", Georgia, serif',
       fontSize: `${Math.round(48 * (w / 720))}px`,
       color: '#f4e4bc',
+      stroke: '#1a0510',
+      strokeThickness: 4,
     }).setOrigin(0.5);
     this.pauseOverlay.add(title);
-    const resume = this.add.text(cx, cy + 80, 'Resume', {
-        fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: `${Math.round(28 * (w / 720))}px`,
-        color: '#ffd873',
-        backgroundColor: '#3d2914aa',
-        padding: { x: 30, y: 15 },
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    resume.on('pointerup', () => this.togglePause());
-    this.pauseOverlay.add(resume);
   }
 
   private toggleAudio(): void {
