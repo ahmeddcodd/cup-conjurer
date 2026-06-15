@@ -253,14 +253,21 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
       fontSize: `${Math.round(34 * (w / 720))}px`,
     });
 
-    this.bestStreakText.setPosition(cx, h * 0.545);
-    this.bestStreakText.setStyle({
-      fontSize: `${Math.round(26 * (w / 720))}px`,
-    });
-
     this.playButton.setPosition(cx, h * 0.7);
     const playScale = Math.min((w * 0.92) / this.playButton.width, (h * 0.38) / this.playButton.height);
     this.playButton.setScale(playScale);
+
+    // Place the best-streak text just below the instruction text with a small gap.
+    // (Anchored to the instruction text, not the play button, whose 1024px sprite
+    // has large transparent padding that makes its bounding box unreliable.)
+    this.bestStreakText.setStyle({
+      fontSize: `${Math.round(26 * (w / 720))}px`,
+    });
+    const instructionBottom = this.instructionText.y + this.instructionText.displayHeight / 2;
+    this.bestStreakText.setPosition(
+      cx,
+      instructionBottom + this.bestStreakText.displayHeight / 2 + h * 0.03,
+    );
 
     // The pulse tween targets 'scale', which conflicts with setScale above, so
     // rebuild it from the new base scale. Kill only the pulse (not every tween on
