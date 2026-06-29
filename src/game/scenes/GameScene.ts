@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_URL, TEXTURE_KEYS } from '../assets';
+import { TEXTURE_KEYS } from '../assets';
 import {
   getIllusionSwapChance,
   getNumCupsForRound,
@@ -7,9 +7,8 @@ import {
   getSwapDurationMsForRound,
 } from '../gameplay/roundParams';
 import {
-  canUserToggleAudio,
   ensureBackgroundMusic,
-  isEffectivelyMuted,
+  isUserAudioMuted,
   onPlayablesAudioUiChange,
   playSound,
   toggleUserAudio,
@@ -89,20 +88,9 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
     super({ key: 'GameScene' });
   }
 
-  preload(): void {
-    // Re-declare assets here. Phaser is smart: if they are already in the cache 
-    // or currently being loaded by StartScene, it won't duplicate the request.
-    // This ensures create() ONLY runs when assets are 100% ready.
-    this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
-    this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
-    this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
-    this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
-    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
-    this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
-    this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
-    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
-    this.load.audio(TEXTURE_KEYS.correctSound, ASSET_URL.correctSound);
-  }
+  // No preload(): every asset is already loaded by StartScene before Play is
+  // tappable, so we skip Phaser's loader cycle here. That makes scene.start go
+  // straight to create() with no empty-canvas gap (the purple flash).
 
   create(): void {
     const startMusic = () => {
@@ -722,20 +710,16 @@ export class GameScene extends Phaser.Scene implements PlayablesGameplayHost {
   }
 
   private toggleAudio(): void {
-    if (!canUserToggleAudio()) return;
     toggleUserAudio();
   }
 
   private updateAudioIcon(): void {
-    const muted = isEffectivelyMuted();
-    this.audioBtn.setTexture(muted ? TEXTURE_KEYS.audioOff : TEXTURE_KEYS.audioOn);
-
-    const platformAllowsToggle = canUserToggleAudio();
-    this.audioBtn.setAlpha(platformAllowsToggle ? 1 : 0.45);
-    if (platformAllowsToggle) {
-      this.audioBtn.setInteractive({ useHandCursor: true });
-    } else {
-      this.audioBtn.disableInteractive();
-    }
+    // Icon reflects the PLAYER's own mute intent so every tap visibly flips it,
+    // even while YouTube is muted. The button stays fully visible and interactive
+    // in every host-mute state (required by the Playables audio test); actual
+    // audibility is governed separately by the host mute.
+    this.audioBtn.setTexture(isUserAudioMuted() ? TEXTURE_KEYS.audioOff : TEXTURE_KEYS.audioOn);
+    this.audioBtn.setAlpha(1);
+    this.audioBtn.setInteractive({ useHandCursor: true });
   }
 }

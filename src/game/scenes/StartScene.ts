@@ -49,7 +49,11 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
     this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
     this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
-    
+    // Preload the correct-guess SFX here too, so GameScene needs no preload() of
+    // its own — that avoids a redundant loader cycle (and its purple-flash gap)
+    // on scene start. Covered by the existing load 'complete' gate before Play.
+    this.load.audio(TEXTURE_KEYS.correctSound, ASSET_URL.correctSound);
+
     const startMusic = () => {
       ensureBackgroundMusic(this);
     };

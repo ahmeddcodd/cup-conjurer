@@ -1,17 +1,20 @@
+// Relative paths (no leading slash) so Phaser's loader resolves them against the
+// document base. Required for YouTube Playables, which serves the game from a
+// subpath — absolute "/assets/..." URLs would 404 there.
 export const ASSET_URL = {
-  background: '/assets/background.png',
-  table: '/assets/table_spirit.png',
-  closedGoblet: '/assets/closed_goblet_spirit.png',
-  openGoblet: '/assets/open_goblet_spirit.png',
-  diamond: '/assets/diamond_spirit.png',
-  gameLogo: '/assets/game_logo_spirit.png',
-  playButton: '/assets/play_button_spirit.png',
-  swipeTrail: '/assets/magical_swipe_trail_effect_spirit.png',
-  backgroundTone: '/assets/background_tone.mp3',
-  playSound: '/assets/play_soundeffect.mp3',
-  correctSound: '/assets/magical-sound.mp3',
-  audioOn: '/assets/audio_on_spirit.png',
-  audioOff: '/assets/audio_off_spirit.png',
+  background: 'assets/background.png',
+  table: 'assets/table_spirit.png',
+  closedGoblet: 'assets/closed_goblet_spirit.png',
+  openGoblet: 'assets/open_goblet_spirit.png',
+  diamond: 'assets/diamond_spirit.png',
+  gameLogo: 'assets/game_logo_spirit.png',
+  playButton: 'assets/play_button_spirit.png',
+  swipeTrail: 'assets/magical_swipe_trail_effect_spirit.png',
+  backgroundTone: 'assets/background_tone.mp3',
+  playSound: 'assets/play_soundeffect.mp3',
+  correctSound: 'assets/magical-sound.mp3',
+  audioOn: 'assets/audio_on_spirit.png',
+  audioOff: 'assets/audio_off_spirit.png',
 } as const;
 
 export const TEXTURE_KEYS = {

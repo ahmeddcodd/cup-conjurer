@@ -25,6 +25,11 @@ function youtubePlayablesSdkFirst(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative base: YouTube Playables serves the bundle from a subpath, not the
+  // domain root. Absolute "/assets/..." URLs would 404 there (the game would never
+  // boot and FirstFrameReady would never fire). "./" makes every emitted URL
+  // resolve relative to index.html wherever the host mounts it.
+  base: './',
   plugins: [youtubePlayablesSdkFirst()],
   build: {
     emptyOutDir: true,

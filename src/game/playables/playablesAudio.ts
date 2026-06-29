@@ -61,9 +61,16 @@ export function isEffectivelyMuted(): boolean {
   return !platformAudioEnabled || !userAudioEnabled;
 }
 
-/** In-game mute is only allowed when YouTube audio is on (RS_03). */
-export function canUserToggleAudio(): boolean {
-  return platformAudioEnabled;
+/**
+ * The player's own mute intent — drives the in-game button icon, independent of
+ * the host mute. The button is always operable in every YouTube-mute state (the
+ * Playables audio test requires muting/unmuting via this control even while
+ * YouTube is muted). Audio OUTPUT stays gated by the host mute separately
+ * (isEffectivelyMuted / applyPlayablesAudio), so toggling never produces sound
+ * while YouTube is muted — which keeps it spec-compliant.
+ */
+export function isUserAudioMuted(): boolean {
+  return !userAudioEnabled;
 }
 
 export function onPlayablesAudioUiChange(listener: () => void): () => void {
@@ -298,8 +305,10 @@ export function initPlayablesAudio(game: Phaser.Game): void {
 }
 
 export function toggleUserAudio(): void {
-  if (!platformAudioEnabled) return;
-
+  // Always operate, even while YouTube is muted. applyPlayablesAudio() keeps
+  // sound.mute true whenever the host is muted, so this never makes sound then —
+  // it only records the player's intent (and starts/stops music when host audio
+  // is on). Required for the Playables audio test to use the in-game control.
   userAudioEnabled = !userAudioEnabled;
   applyPlayablesAudio();
 
