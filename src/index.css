@@ -5,7 +5,9 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0b0612;
+  /* Black (not purple) so the brief pre-first-paint frame reads as "loading",
+     matching the BootScene's black canvas — never a purple-lag flash. */
+  background: #000;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -16,7 +18,7 @@ body,
   height: 100dvh;
   /* Cap the width to a 9:16 ratio relative to the height for desktop/tablets */
   max-width: calc(100dvh * 9 / 16);
-  background: #12081c;
+  background: #000;
   position: relative;
 }
 

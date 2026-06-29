@@ -7,6 +7,7 @@ import {
   bindPlayablesResize,
   bindWebGLContextRecovery,
 } from './playables/playablesPlatform';
+import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { StartScene } from './scenes/StartScene';
 
@@ -16,7 +17,7 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
     parent,
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
-    backgroundColor: '#12081c',
+    backgroundColor: '#000000',
     antialias: true,
     antialiasGL: true,
     roundPixels: false,
@@ -33,7 +34,7 @@ export function createCupConjurerGame(parent: HTMLElement): Phaser.Game {
         Phaser.Display.Canvas.CanvasInterpolation.setBicubic(bootedGame.canvas);
       },
     },
-    scene: [StartScene, GameScene],
+    scene: [BootScene, StartScene, GameScene],
   });
 
   bindFirstFrameReady(game);

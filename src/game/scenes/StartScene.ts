@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_URL, TEXTURE_KEYS } from '../assets';
+import { TEXTURE_KEYS } from '../assets';
 import { ensureBackgroundMusic, playSound, unlockAudioContextOnGesture } from '../playables/playablesAudio';
 import {
   PLAYABLES_LAYOUT_EVENT,
@@ -24,45 +24,12 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
     super({ key: 'StartScene' });
   }
 
-  private isBackgroundLoadingComplete = false;
-
-  preload(): void {
-    // 1. Critical Assets (Must be loaded before create() is called)
-    this.load.image(TEXTURE_KEYS.background, ASSET_URL.background);
-    this.load.image(TEXTURE_KEYS.gameLogo, ASSET_URL.gameLogo);
-    this.load.image(TEXTURE_KEYS.playButton, ASSET_URL.playButton);
-    this.load.image(TEXTURE_KEYS.diamond, ASSET_URL.diamond);
-    this.load.image(TEXTURE_KEYS.swipeTrail, ASSET_URL.swipeTrail);
-    this.load.audio(TEXTURE_KEYS.playSound, ASSET_URL.playSound);
-
-    // Error handling for loader
-    this.load.on('loaderror', (file: Phaser.Loader.File) => {
-      console.error(`Error loading asset: ${file.key}`, file.src);
-    });
-  }
-
   create(): void {
-    // 2. Start loading non-critical assets in the background
-    this.load.image(TEXTURE_KEYS.table, ASSET_URL.table);
-    this.load.image(TEXTURE_KEYS.closedGoblet, ASSET_URL.closedGoblet);
-    this.load.image(TEXTURE_KEYS.openGoblet, ASSET_URL.openGoblet);
-    this.load.image(TEXTURE_KEYS.audioOn, ASSET_URL.audioOn);
-    this.load.image(TEXTURE_KEYS.audioOff, ASSET_URL.audioOff);
-    this.load.audio(TEXTURE_KEYS.backgroundTone, ASSET_URL.backgroundTone);
-    // Preload the correct-guess SFX here too, so GameScene needs no preload() of
-    // its own — that avoids a redundant loader cycle (and its purple-flash gap)
-    // on scene start. Covered by the existing load 'complete' gate before Play.
-    this.load.audio(TEXTURE_KEYS.correctSound, ASSET_URL.correctSound);
-
+    // All assets were already loaded up front by BootScene, so there is no
+    // preload()/deferred loading here — the start screen paints immediately.
     const startMusic = () => {
       ensureBackgroundMusic(this);
     };
-
-    this.load.once('complete', () => {
-      this.isBackgroundLoadingComplete = true;
-      startMusic();
-    });
-    this.load.start();
 
     startMusic();
     this.input.once('pointerdown', () => {
@@ -152,45 +119,12 @@ export class StartScene extends Phaser.Scene implements PlayablesGameplayHost {
       this.playButton.clearTint();
     });
 
-    const launchGame = () => {
-      // RS_06: never reset the save here — GameScene resumes the stored run.
-      this.scene.start('GameScene');
-    };
-
     const startGame = () => {
+      // All assets are already loaded by BootScene — start instantly, no loading
+      // text. RS_06: never reset the save here; GameScene resumes the stored run.
       unlockAudioContextOnGesture(this.game);
-      // Check if background loading is already done or if there's nothing to load
-      const isReady = this.isBackgroundLoadingComplete || (!this.load.isLoading() && this.load.progress === 1);
-
-      if (isReady) {
-        playSound(this, TEXTURE_KEYS.playSound, { volume: 0.8 });
-        launchGame();
-      } else {
-        // Show loading progress on the screen
-        this.instructionText.setText('Channelling spirits...\n0%');
-        this.playButton.setAlpha(0.5);
-        this.playButton.disableInteractive();
-
-        // Update percentage as assets load
-        const onProgress = (progress: number) => {
-          const percent = Math.round(progress * 100);
-          this.instructionText.setText(`Channelling spirits...\n${percent}%`);
-        };
-
-        this.load.on('progress', onProgress);
-
-        this.load.once('complete', () => {
-          this.load.off('progress', onProgress);
-          this.isBackgroundLoadingComplete = true;
-          playSound(this, TEXTURE_KEYS.playSound, { volume: 0.8 });
-          launchGame();
-        });
-
-        // If the loader was idle for some reason, kickstart it
-        if (!this.load.isLoading()) {
-          this.load.start();
-        }
-      }
+      playSound(this, TEXTURE_KEYS.playSound, { volume: 0.8 });
+      this.scene.start('GameScene');
     };
 
     this.playButton.on('pointerup', startGame);
